@@ -831,7 +831,9 @@ function install (injector) {
             return json(res, 200, groups()?.list() ?? [])
         }
         if (at('GET', /^\/api\/icons$/)) {
-            return json(res, 200, icons)
+            // Built-in icons, plus the user's own from tabby-groups' settings (kind "user:<name>", maybe an emoji).
+            const own = groups()?.icons?.() ?? []
+            return json(res, 200, { ...icons, ...Object.fromEntries(own.map(i => [i.kind, i])) })
         }
         if (at('POST', /^\/api\/sessions$/)) {
             const body = await readBody(req).catch(() => null)

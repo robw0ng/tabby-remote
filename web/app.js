@@ -246,6 +246,8 @@ function listen () {
 
 function iconFor (kind, size = 16) {
     const i = icons[kind]
+    // A user's own icon (tabby-groups) may be an emoji.
+    if (i?.emoji) return el('span', { className: 'emoji', textContent: i.emoji, style: `font-size:${Math.round(size * 0.9)}px;line-height:${size}px` })
     const ns = 'http://www.w3.org/2000/svg'
     const svg = document.createElementNS(ns, 'svg')
     svg.setAttribute('viewBox', '0 0 24 24')
