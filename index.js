@@ -33,7 +33,7 @@ function install (injector) {
 
     // Settings (Tabby's Settings > Phone access) and paired devices, outside Tabby's config, which syncs between PCs.
     // Not 7680: Windows Delivery Optimization holds that port on every PC.
-    let store = { port: 7681, passwordHash: null, devices: [], keepAwake: true, awakeMinutes: 30 }
+    let store = { enabled: true, port: 7681, passwordHash: null, devices: [], keepAwake: true, awakeMinutes: 30 }
     try {
         store = { ...store, ...JSON.parse(fs.readFileSync(storePath, 'utf8')) }
     } catch { }
@@ -474,6 +474,7 @@ function install (injector) {
     }
 
     function showQr () {
+        if (!store.enabled) return notifications.notice('Phone access is off: turn it on in Settings > Phone access')
         closeQr()
         const el = document.createElement('div')
         el.style.cssText = 'position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.6);font:14px system-ui,sans-serif;color:#eee'
@@ -887,17 +888,29 @@ function install (injector) {
         }))
     }
 
-    // Listens on the addresses present at startup; restart Tabby after joining a new network.
-    const servers = lanAddresses().map(addr => {
-        const s = http.createServer(inZone((req, res) => handle(req, res).catch(e => {
-            console.error('[tabby-remote]', e)
-            json(res, 500, { error: 'internal' })
-        })))
-        s.on('upgrade', inZone(upgrade))
-        s.on('error', e => console.warn(`[tabby-remote] ${addr}:${listeningPort}`, e.message))
-        s.listen(listeningPort, addr)
-        return s
-    })
+    // Listens on the addresses present when it starts; restart Tabby (or turn it off and on) after joining a new network.
+    let servers = []
+    function startServers () {
+        if (servers.length) return
+        servers = lanAddresses().map(addr => {
+            const s = http.createServer(inZone((req, res) => handle(req, res).catch(e => {
+                console.error('[tabby-remote]', e)
+                json(res, 500, { error: 'internal' })
+            })))
+            s.on('upgrade', inZone(upgrade))
+            s.on('error', e => console.warn(`[tabby-remote] ${addr}:${listeningPort}`, e.message))
+            s.listen(listeningPort, addr)
+            return s
+        })
+    }
+    /** Phone access off: nothing listens on the network and every device is disconnected; they stay paired. */
+    function stopServers () {
+        closeQr()
+        ;[...clients, ...eventClients].forEach(c => c.conn.close(1001))
+        servers.forEach(s => s.close())
+        servers = []
+    }
+    if (store.enabled) startServers()
 
     // ---- Settings > Phone access ----
 
@@ -928,6 +941,14 @@ function install (injector) {
 
         host.replaceChildren(
             h('h3', { className: 'mb-3', textContent: 'Phone access' }),
+            line('Phone access', 'Off: nothing listens on the network and connected devices are dropped. They stay paired.',
+                toggle(store.enabled, on => {
+                    store.enabled = on
+                    save()
+                    if (on) startServers()
+                    else stopServers()
+                    rerender()
+                })),
             line('Address', 'Open it on a phone or tablet on the same Wi-Fi, or scan the QR.',
                 h('code', { className: 'me-3', textContent: `http://${phoneAddress()}:${listeningPort}` }),
                 h('button', { className: 'btn btn-primary', textContent: 'Show QR', onclick: () => showQr() })),

@@ -18,6 +18,7 @@ Set in Tabby's **Settings > Phone access**, and saved in `tabby-remote.json` in 
 
 | Key | Value |
 | --- | --- |
+| `enabled` | Phone access on or off (default on). Off: nothing listens and every device is disconnected; devices stay paired. |
 | `port` | Default `7681`. Applies after a Tabby restart. |
 | `passwordHash` | The login password as a salted scrypt hash. Login is off while it is empty; QR pairing works without it. |
 | `keepAwake`, `awakeMinutes` | Keep the PC awake while a device is attached, and this many minutes after the last one leaves (default on, 30) |

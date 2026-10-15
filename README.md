@@ -46,6 +46,7 @@ Tabby **Settings > Phone access**:
 
 | Setting | Default |
 | --- | --- |
+| Phone access | On. Off stops listening on the network and drops connected devices; they stay paired. |
 | Port | `7681` |
 | Password sign-in | Off (QR only) |
 | Keep this PC awake | On, and 30 minutes after the last device leaves |
