@@ -292,8 +292,9 @@ function pinIcon () {
 function row (s, color, depth) {
     const r = el('button', {
         // Claude's state, as tabby-groups draws it: a spinning ring on the icon while busy; a dot and a bold title
-        // when it finished while nobody was looking ("needs you").
-        className: 'row' + (s.cwd ? ' two-line' : '') + (s.agent?.needsYou ? ' needs-you' : '') + (s.agent?.state === 'busy' ? ' busy' : ''),
+        // when it finished while nobody was looking ("needs you"); an amber ? or ! while it asks (a question, or
+        // a permission prompt), in place of the dot.
+        className: 'row' + (s.cwd ? ' two-line' : '') + (s.agent?.needsYou ? ' needs-you' : '') + (s.agent?.state === 'busy' ? ' busy' : '') + (s.agent?.asking ? ' asking' : ''),
         ariaCurrent: String(current?.sessionId === s.id),
         title: [s.title, s.cwd].filter(Boolean).join('\n'),
         onclick: () => open(s.id),
@@ -301,7 +302,7 @@ function row (s, color, depth) {
     el('span', { className: 'num', textContent: s.index }),
     s.pinned ? el('span', { className: 'pin', ariaLabel: 'pinned' }, pinIcon()) : null,
     // No icon for an app tabby-groups has none for.
-    icons[s.kind] ? el('span', { className: 'icon' }, iconFor(s.kind, 14)) : null,
+    icons[s.kind] ? askMark(el('span', { className: 'icon' }, iconFor(s.kind, 14)), s.agent?.asking) : null,
     el('span', { className: 'text' }, el('span', { className: 'title', textContent: s.title }), s.cwd ? el('span', { className: 'cwd', textContent: s.cwd }) : null),
     badges(s),
     // Mouse only (touch swipes the row away): Tabby's ✕ on hover.
@@ -398,6 +399,8 @@ function groupEl (n, depth, hiddenAbove = false) {
     const box = el('div', { className: 'grp' + (depth === 0 ? ' top' : '') })
     box.dataset.group = g.name
     box.style.background = `color-mix(in srgb, ${color} ${tintPct(depth)}%, var(--bg))`
+    // For marks that ring themselves in the panel's colour (the asking mark).
+    box.style.setProperty('--panel-bg', box.style.background)
     box.append(el('div', { className: 'grp-bar' },
         el('button', {
             className: 'grp-head',
@@ -439,18 +442,19 @@ const searching = () => !!$('search').value.trim()
  */
 function rollup (g) {
     const parts = [g.needsYou ? `${g.needsYou} need${g.needsYou === 1 ? 's' : ''} you` : null, g.busy ? `${g.busy} busy` : null].filter(Boolean)
-    if (!parts.length) return null
+    if (!parts.length && !g.asking) return null
     return el('span', {
         className: 'rollup',
-        textContent: ' · ' + parts.join(' · '),
+        // "· N asking" first, in amber, as in tabby-groups.
         onclick: e => {
-            const first = sessions.filter(s => s.agent?.needsYou && s.group.includes(g.name)).sort((a, b) => a.index - b.index)[0]
+            const first = sessions.filter(s => (s.agent?.asking || s.agent?.needsYou) && s.group.includes(g.name))
+                .sort((a, b) => !!b.agent?.asking - !!a.agent?.asking || a.index - b.index)[0]
             if (!first) return
             e.stopPropagation()
             clearTimeout(pendingFold)
             open(first.id)
         },
-    })
+    }, g.asking ? el('span', { className: 'asking', textContent: ` · ${g.asking} asking` }) : null, parts.length ? ' · ' + parts.join(' · ') : null)
 }
 
 // ---- "Needs you": a notice when a Claude finishes on a tab this page is not showing ----
@@ -468,15 +472,19 @@ function toast (text, onTap) {
 
 /** Called with each changed session: a notice when it newly needs you. */
 function watchAgents (before, after) {
-    if (after?.agent?.needsYou && !before?.agent?.needsYou && after.id !== current?.sessionId) {
+    if (after?.agent?.asking && !before?.agent?.asking && after.id !== current?.sessionId) {
+        toast(`${after.title} is asking`, () => open(after.id))
+    } else if (after?.agent?.needsYou && !before?.agent?.needsYou && after.id !== current?.sessionId) {
         toast(`${after.title} needs you`, () => open(after.id))
     }
 }
 
 /** How many tabs need you: a badge on ☰ (the title is not shown full screen from the Home Screen) and in the title. */
 function showNeedsYou () {
-    const n = sessions.filter(s => s.agent?.needsYou).length
+    // Asking counts too, and turns the badge amber.
+    const n = sessions.filter(s => s.agent?.needsYou || s.agent?.asking).length
     document.title = n ? `(${n}) Tabby Remote` : 'Tabby Remote'
+    $('list-badge').classList.toggle('asking', sessions.some(s => s.agent?.asking))
     $('list-badge').hidden = !n
     $('list-badge').textContent = n > 9 ? '9+' : n
     $('show-list').ariaLabel = n ? `Show tabs, ${n} need${n === 1 ? 's' : ''} you` : 'Show tabs'
@@ -1933,4 +1941,10 @@ function keepBackspaceRepeating (t) {
     ta.addEventListener('compositionstart', () => { composing = true })
     ta.addEventListener('compositionend', () => { composing = false; refill() })
     for (const type of ['focus', 'input', 'keyup']) ta.addEventListener(type, refill)
+}
+
+/** The mark drawn on a tab's icon while Claude asks: ? for a question, ! for a permission prompt (app.css). */
+function askMark (icon, asking) {
+    if (asking) icon.dataset.ask = asking.kind === 'permission' ? '!' : '?'
+    return icon
 }
