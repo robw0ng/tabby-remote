@@ -1736,6 +1736,8 @@ if (vv) {
     }
     vv.addEventListener('resize', follow)
     vv.addEventListener('scroll', follow)
+    // iOS reports mid-rotation sizes and may not send a final one: measure again once the rotation has settled.
+    window.addEventListener('orientationchange', () => [100, 400, 800].forEach(ms => setTimeout(follow, ms)))
     follow()
 }
 

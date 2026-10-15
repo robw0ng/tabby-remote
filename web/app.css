@@ -263,3 +263,20 @@ body.keyboard #keys { padding-bottom: 4px; }
 #show-list { position: relative; }
 #list-badge { position: absolute; top: -2px; right: -2px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; background: #86b7f7; color: #111; font: 700 10px/16px system-ui, sans-serif; text-align: center; box-shadow: 0 0 0 2px var(--bg); pointer-events: none; }
 #list-badge[hidden] { display: none; }
+
+/* A phone on its side: the keyboard leaves little room, so the key bar is one slim row (all 16 keys, in keyboard
+   order) and the header is thinner. */
+@media (max-height: 500px) and (pointer: coarse) {
+  #term-head { min-height: 30px; padding-top: max(2px, env(safe-area-inset-top)); padding-bottom: 2px; }
+  #keys { grid-template-columns: repeat(16, 1fr); gap: 3px; padding: 3px max(3px, env(safe-area-inset-right)) 3px max(3px, env(safe-area-inset-left)); }
+  body:not(.keyboard) #keys { padding-bottom: max(3px, env(safe-area-inset-bottom)); }
+  #keys button[data-key] { grid-area: auto; min-height: 30px; font-size: 12px; }
+  #keys [data-key="esc"] { order: 1; }    #keys [data-key="tab"] { order: 2; }
+  #keys [data-key="shift"] { order: 3; }  #keys [data-key="ctrl"] { order: 4; }
+  #keys [data-key="alt"] { order: 5; }    #keys [data-key="ctrlc"] { order: 6; }
+  #keys [data-key="copy"] { order: 7; }   #keys [data-key="paste"] { order: 8; }
+  #keys [data-key="pgup"] { order: 9; }   #keys [data-key="pgdn"] { order: 10; }
+  #keys [data-key="home"] { order: 11; }  #keys [data-key="end"] { order: 12; }
+  #keys [data-key="left"] { order: 13; }  #keys [data-key="up"] { order: 14; }
+  #keys [data-key="down"] { order: 15; }  #keys [data-key="right"] { order: 16; }
+}
