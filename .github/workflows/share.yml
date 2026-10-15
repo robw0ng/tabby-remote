@@ -18,6 +18,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: The tag matches package.json's version
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          version="v$(node -p "require('./package.json').version")"
+          [ "$GITHUB_REF_NAME" = "$version" ] || { echo "tag $GITHUB_REF_NAME, but package.json says $version"; exit 1; }
       - name: Build the zip
         id: build
         run: echo "zip=$(bash share/pack.sh | tail -1)" >> "$GITHUB_OUTPUT"
@@ -26,6 +31,11 @@ jobs:
           rm -rf check && mkdir check
           unzip -q "${{ steps.build.outputs.zip }}" -d check
           bash .github/leak-check.sh check
+      - name: The leak check catches a planted leak
+        run: |
+          cp -r check planted
+          echo 'run from the claude-sessions workflow' > planted/tabby-remote/web/planted.txt
+          if bash .github/leak-check.sh planted; then echo 'the leak check missed a planted leak'; exit 1; fi
       - name: Keep as the run's artifact
         uses: actions/upload-artifact@v4
         with:

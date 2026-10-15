@@ -29,6 +29,7 @@ check 'workflow' 'workflow'
 check '[A-Za-z]:\\\\[A-Za-z]' 'a C:\ path'
 check '[A-Za-z]:\\[A-Za-z]' 'a C:\ path'
 check 'robw0ng/' 'robw0ng/ (a repo link)'
+check 'remote-debugging' 'remote-debugging (a debug port)'
 
 [ "$fail" = 0 ] && echo 'leak check: clean'
 exit "$fail"
