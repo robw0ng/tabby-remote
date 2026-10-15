@@ -103,7 +103,17 @@ function accept (req, socket) {
         onClose (fn) { onClose = fn },
     }
 
+    // A peer that went silent (phone off the Wi-Fi, app killed without a goodbye) is cut off: a ping every 15 s,
+    // and nothing heard for 45 s ends the connection, so the server lets go of it (and its terminal size).
+    let heard = Date.now()
+    const beat = setInterval(() => {
+        if (Date.now() - heard > 45000) return socket.destroy()
+        if (!closed) socket.write(frame(9, Buffer.alloc(0)))
+    }, 15000)
+    beat.unref?.()
+
     socket.on('data', chunk => {
+        heard = Date.now()
         if (closed) return
         chunks.push(chunk)
         pending += chunk.length
@@ -133,6 +143,7 @@ function accept (req, socket) {
         }
     })
     socket.on('close', () => {
+        clearInterval(beat)
         closed = true
         onClose()
     })

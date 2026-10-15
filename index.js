@@ -187,7 +187,10 @@ function install (injector) {
 
     function takeSize (client) {
         const { pane, size } = client
-        if (size) pane.__trSizer = client.device.id
+        if (size) {
+            pane.__trSizer = client.device.id
+            pane.__trSizerClient = client
+        }
         if (!size || (pane.__trSize?.cols === size.cols && pane.__trSize?.rows === size.rows)) return
         pane.__trSize = size
         pane.__trResizedAt = Date.now()
@@ -195,9 +198,19 @@ function install (injector) {
         broadcastSize(pane)
     }
 
+    /** A client stops looking (page in the background, or gone): if it set the size, the size goes to the latest other
+     *  device still looking at this pane, or back to Tabby. */
+    function handOff (pane, leaving) {
+        // By connection, not device: a page that reopens its tab closes the old connection after the new one took the size.
+        if (pane.__trSizerClient !== leaving) return
+        const next = [...clients].filter(c => c.pane === pane && c !== leaving && !c.away && c.size).at(-1)
+        if (next) takeSize(next)
+        else returnSize(pane)
+    }
+
     function returnSize (pane) {
         if (!pane.__trSize) return
-        pane.__trSize = pane.__trSizer = null
+        pane.__trSize = pane.__trSizer = pane.__trSizerClient = null
         if (pane.size) pane.session?.resize(pane.size.columns, pane.size.rows)
         broadcastSize(pane)
     }
@@ -212,12 +225,15 @@ function install (injector) {
         const onKey = () => returnSize(pane)
         el.addEventListener('keydown', onKey, true)
         el.addEventListener('paste', onKey, true)
-        // Tabby resizes the PTY itself ~100 ms after its window or split changes; follow it.
-        const sub = pane.frontend.resize$.subscribe(() => setTimeout(() => {
+        // Tabby resizes the PTY itself ~100 ms after its window or split changes; follow it. resize$ replays the last
+        // size to each new subscriber; that replay is old news, not a resize.
+        let replay = true
+        const sub = pane.frontend.resize$.subscribe(() => !replay && setTimeout(() => {
             if (!pane.__trSize) return
-            pane.__trSize = pane.__trSizer = null
+            pane.__trSize = pane.__trSizer = pane.__trSizerClient = null
             broadcastSize(pane)
         }, 150))
+        replay = false
         pane.__trUnwatch = () => {
             el.removeEventListener('keydown', onKey, true)
             el.removeEventListener('paste', onKey, true)
@@ -237,6 +253,8 @@ function install (injector) {
                 if (watched) pane.__trUnwatch?.()
                 // Also when it left before the snapshot: a resize it sent early still has to be undone.
                 returnSize(pane)
+            } else {
+                handOff(pane, client)
             }
             updatePresence()
         })
@@ -263,8 +281,11 @@ function install (injector) {
                 client.size = { cols: Math.min(Math.max(m.cols, 2), 1000), rows: Math.min(Math.max(m.rows, 2), 1000) }
                 takeSize(client)
             } else if (m.type === 'presence') {
-                // The page went to the background (phone locked, tab switched) or came back.
+                // The page went to the background (phone locked, app swiped away, tab switched): Tabby gets its size
+                // back. Back on screen, the device takes it again unless another device holds it now.
                 client.away = m.state === 'away'
+                if (client.away) handOff(pane, client)
+                else if (!pane.__trSize) takeSize(client)
                 updatePresence()
             }
         }))

@@ -148,7 +148,9 @@ Attaching to a background tab that has not started yet selects it in Tabby, beca
 | A remote client sends input or `resize` | The terminal takes the remote size. Apps such as Claude redraw for it. |
 | You type in Tabby again | The terminal returns to Tabby's size. |
 | Several remote clients | The last one that typed sets the size. |
-| Last remote client leaves | The terminal returns to Tabby's size. |
+| The client setting the size goes to the background (`presence` `away`) or leaves | The size passes to the latest other client still looking at the pane, else back to Tabby. |
+| It comes back (`presence` `here`) | It takes the size again, unless another client holds it now. |
+| A client goes silent | The server pings every 15 s and drops a connection it has not heard from for 45 s, so a phone that lost Wi-Fi or was killed lets go of the size. |
 | Phone page | Fits the terminal to its screen as soon as a tab opens, and again on rotation or when the keyboard opens |
 | Input right after a resize | Held 200 ms, so PowerShell does not drop the first key while it redraws |
 
