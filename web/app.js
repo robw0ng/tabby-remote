@@ -1722,14 +1722,22 @@ $('keys').addEventListener('click', e => {
 
 const vv = window.visualViewport
 if (vv) {
+    // The keyboard can only be up while a text field has focus.
+    const typing = () => document.activeElement?.matches?.('textarea, input:not([type=button]):not([type=checkbox]):not([type=file])')
     const follow = () => {
         const root = document.documentElement.style
-        root.setProperty('--vvh', `${vv.height}px`)
-        root.setProperty('--vvtop', `${vv.offsetTop}px`)
+        if (typing()) {
+            root.setProperty('--vvh', `${vv.height}px`)
+            root.setProperty('--vvtop', `${vv.offsetTop}px`)
+        } else {
+            // No keyboard: the whole screen. iOS can keep reporting the keyboard-up height after a rotation.
+            root.removeProperty('--vvh')
+            root.removeProperty('--vvtop')
+        }
         // Keyboard up (the visible area is well short of the window): the home-indicator gap at the bottom is
         // covered by the keyboard, so the key bar must sit right on top of it. Matters in the Home Screen app,
         // where that gap is real; in Safari it is already 0.
-        document.body.classList.toggle('keyboard', window.innerHeight - vv.height > 120)
+        document.body.classList.toggle('keyboard', !!typing() && window.innerHeight - vv.height > 120)
         window.scrollTo(0, 0)
         // The terminal box shrank; its ResizeObserver refits, then we show the cursor line.
         requestAnimationFrame(() => term?.scrollToBottom())
@@ -1738,6 +1746,9 @@ if (vv) {
     vv.addEventListener('scroll', follow)
     // iOS reports mid-rotation sizes and may not send a final one: measure again once the rotation has settled.
     window.addEventListener('orientationchange', () => [100, 400, 800].forEach(ms => setTimeout(follow, ms)))
+    // The keyboard opens on focus and closes on blur; iOS's own resize can come late or not at all.
+    document.addEventListener('focusin', follow)
+    document.addEventListener('focusout', () => [0, 300].forEach(ms => setTimeout(follow, ms)))
     follow()
 }
 
