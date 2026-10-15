@@ -1013,13 +1013,13 @@ $('hide-list').onclick = () => setView('term')
  * right), left to right on the sidebar closes it. A quick, mostly sideways swipe only, so scrolling, the cursor
  * slide and swiping a tab row away (leftwards, inside the list) keep their own gestures.
  */
-function sideSwipe (area, dir, act) {
+function sideSwipe (area, dir, act, anyWidth = false) {
     let start = null
     area.addEventListener('touchstart', e => {
         start = e.touches.length === 1 ? { x: e.touches[0].clientX, y: e.touches[0].clientY, t: e.timeStamp } : null
     }, { passive: true })
     area.addEventListener('touchend', e => {
-        if (!start || !narrow.matches) return
+        if (!start || !(narrow.matches || anyWidth)) return
         const p = e.changedTouches[0]
         const dx = p.clientX - start.x
         const dy = p.clientY - start.y
@@ -1031,6 +1031,27 @@ function sideSwipe (area, dir, act) {
 }
 sideSwipe($('term-box'), -1, () => setView('list'))
 sideSwipe($('side'), 1, () => current && setView('term'))
+// Swipe right on the terminal: accept the grey suggestion (on tablets too).
+sideSwipe($('term-box'), 1, () => acceptSuggestion(), true)
+
+/**
+ * Accepts the grey suggestion after what is typed (PowerShell's prediction, Claude's suggested prompt): → to the end
+ * of the typed text, then one more →, which accepts it in both. Without a suggestion it does nothing.
+ */
+function acceptSuggestion () {
+    const t = term
+    if (!t || !touch.matches) return
+    const b = t.buffer.active
+    const typed = typedAhead(t)
+    // The grey text right after it (it may start with a space) must hold something.
+    let found = false
+    for (let at = b.cursorX + typed; at < b.cursorX + typed + t.cols && !found; at++) {
+        const c = b.getLine(b.baseY + b.cursorY + Math.floor(at / t.cols))?.getCell(at % t.cols)
+        if (!c?.isDim()) break
+        found = !!c.getChars().trim()
+    }
+    if (found) sendKey(keySeq('right').repeat(typed + 1))
+}
 
 function renderHead () {
     const s = sessions.find(x => x.id === current?.sessionId)
@@ -1142,6 +1163,7 @@ function open (sessionId, paneId) {
     sendKey = data => send({ type: 'input', data })
     appCursor = () => t.modes.applicationCursorKeysMode
     touchScroll(box, t, fitSize)
+    if (touch.matches) keepBackspaceRepeating(t)
     closeFind()
     watchChoices(t)
 }
@@ -1879,4 +1901,23 @@ function applyTheme (t, theme) {
     if (!theme) return
     t.options.theme = theme
     if (theme.background) document.documentElement.style.setProperty('--term-bg', theme.background)
+}
+
+/**
+ * iPhone repeats a held ⌫ only while the text box has text to delete, and the terminal's hidden text box is always
+ * empty (each key goes straight to the terminal), so ⌫ deleted once per press. A few invisible characters keep it
+ * repeating; each ⌫ still sends the terminal one delete, and the filler is topped up after every key.
+ */
+function keepBackspaceRepeating (t) {
+    const ta = t.textarea
+    const FILL = '​'.repeat(8)
+    let composing = false
+    const refill = () => setTimeout(() => {
+        if (composing || ta.value === FILL || document.activeElement !== ta) return
+        ta.value = FILL
+        ta.setSelectionRange(FILL.length, FILL.length)
+    })
+    ta.addEventListener('compositionstart', () => { composing = true })
+    ta.addEventListener('compositionend', () => { composing = false; refill() })
+    for (const type of ['focus', 'input', 'keyup']) ta.addEventListener(type, refill)
 }
