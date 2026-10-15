@@ -466,13 +466,20 @@ function toast (text, onTap) {
     toastTimer = setTimeout(() => { t.hidden = true }, 6000)
 }
 
-/** Called with each changed session: a notice when it newly needs you, and the count in the browser's title. */
+/** Called with each changed session: a notice when it newly needs you. */
 function watchAgents (before, after) {
     if (after?.agent?.needsYou && !before?.agent?.needsYou && after.id !== current?.sessionId) {
         toast(`${after.title} needs you`, () => open(after.id))
     }
+}
+
+/** How many tabs need you: a badge on ☰ (the title is not shown full screen from the Home Screen) and in the title. */
+function showNeedsYou () {
     const n = sessions.filter(s => s.agent?.needsYou).length
     document.title = n ? `(${n}) Tabby Remote` : 'Tabby Remote'
+    $('list-badge').hidden = !n
+    $('list-badge').textContent = n > 9 ? '9+' : n
+    $('show-list').ariaLabel = n ? `Show tabs, ${n} need${n === 1 ? 's' : ''} you` : 'Show tabs'
 }
 
 /** One redraw per frame for a burst of events; none mid-drag, menu or swipe (as tabby-groups pauses), one after. */
@@ -492,6 +499,7 @@ function renderTree () {
     const q = $('search').value.trim().toLowerCase()
     const nodes = tree(q ? s => matches(s, q) : undefined)
     $('tree').replaceChildren(...nodes.map(n => n.tab ? row(n.tab) : groupEl(n, 0)))
+    showNeedsYou()
 }
 $('search').oninput = renderTree
 // Enter opens the first match; Escape clears the search.
@@ -1086,6 +1094,7 @@ function open (sessionId, paneId) {
     ws.onmessage = e => {
         if (typeof e.data !== 'string') return t.write(new Uint8Array(e.data))
         const m = JSON.parse(e.data)
+        if (m.type === 'snapshot' || m.type === 'theme') applyTheme(t, m.theme)
         if (m.type === 'snapshot') {
             setStatus(null)
             t.reset()
@@ -1864,3 +1873,10 @@ function watchChoices (t) {
 }
 // Answering leaves the phone keyboard as it was.
 $('answers').addEventListener('pointerdown', e => e.preventDefault())
+
+/** Tabby's terminal colours (its colour scheme), so a tab looks here as it does in Tabby. An older server sends none. */
+function applyTheme (t, theme) {
+    if (!theme) return
+    t.options.theme = theme
+    if (theme.background) document.documentElement.style.setProperty('--term-bg', theme.background)
+}

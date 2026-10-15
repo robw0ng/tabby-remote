@@ -258,3 +258,8 @@ body.keyboard #keys { padding-bottom: 4px; }
   .menu-item:hover { background: #2e2e2e; }
   .swatch:hover { outline-color: #666; }
 }
+
+/* Tabs that need you, on ☰: the side bars' blue pill. */
+#show-list { position: relative; }
+#list-badge { position: absolute; top: -2px; right: -2px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; background: #86b7f7; color: #111; font: 700 10px/16px system-ui, sans-serif; text-align: center; box-shadow: 0 0 0 2px var(--bg); pointer-events: none; }
+#list-badge[hidden] { display: none; }
