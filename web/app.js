@@ -10,6 +10,14 @@ const KEYS = { esc: '\x1b', tab: '\t', ctrlc: '\x03', home: '\x1b[H', end: '\x1b
 const NO_COLOR = '#9aa0a6'
 // tabby-groups' panel tints: less colour the deeper a panel sits, 6% more on the active row.
 const tintPct = depth => Math.max(20 - depth * 3, 11)
+// tabby-groups' readability rule: a subgroup the same colour as its parent is darker, one more step for each such
+// level in a row; a subgroup of another colour keeps its normal look. 36% per step (this side bar is dark).
+const shadeOf = g => {
+    const parent = g.parent && groups.find(x => x.name === g.parent)
+    const same = parent && (parent.color ?? NO_COLOR).toLowerCase() === (g.color ?? NO_COLOR).toLowerCase()
+    return same ? shadeOf(parent) + 1 : 0
+}
+const darken = (fill, shade) => shade ? `color-mix(in srgb, ${fill}, #000 ${Math.min(36 * shade, 100)}%)` : fill
 const ACTIVE_TINT_ADD = 6
 // Phone layout (sidebar over the terminal): narrow screens, and phones on their side, which are short.
 const narrow = matchMedia('(max-width: 799px), (max-height: 500px)')
@@ -291,7 +299,7 @@ function pinIcon () {
 }
 
 /** `color`/`depth` are the panel the row sits in, so the active row can take tabby-groups' stronger tint. */
-function row (s, color, depth) {
+function row (s, color, depth, shade = 0) {
     const r = el('button', {
         // Claude's state, as tabby-groups draws it: a spinning ring on the icon while busy; a dot and a bold title
         // when it finished while nobody was looking ("needs you"); an amber ? or ! while it asks (a question, or
@@ -309,7 +317,7 @@ function row (s, color, depth) {
     badges(s),
     // Mouse only (touch swipes the row away): Tabby's ✕ on hover.
     el('span', { className: 'close', role: 'button', ariaLabel: `Close ${s.title}`, title: 'Close tab', textContent: '✕', onclick: e => { e.stopPropagation(); closeTab(s.id) } }))
-    if (color) r.style.setProperty('--active-bg', `color-mix(in srgb, ${color} ${tintPct(depth) + ACTIVE_TINT_ADD}%, var(--bg))`)
+    if (color) r.style.setProperty('--active-bg', darken(`color-mix(in srgb, ${color} ${tintPct(depth) + ACTIVE_TINT_ADD}%, var(--bg))`, shade))
     r.dataset.id = s.id
     return r
 }
@@ -400,7 +408,8 @@ function groupEl (n, depth, hiddenAbove = false) {
     const color = g.color ?? NO_COLOR
     const box = el('div', { className: 'grp' + (depth === 0 ? ' top' : '') })
     box.dataset.group = g.name
-    box.style.background = `color-mix(in srgb, ${color} ${tintPct(depth)}%, var(--bg))`
+    const shade = shadeOf(g)
+    box.style.background = darken(`color-mix(in srgb, ${color} ${tintPct(depth)}%, var(--bg))`, shade)
     // For marks that ring themselves in the panel's colour (the asking mark).
     box.style.setProperty('--panel-bg', box.style.background)
     box.append(el('div', { className: 'grp-bar' },
@@ -431,7 +440,7 @@ function groupEl (n, depth, hiddenAbove = false) {
     const hide = !searching() && (shut || hiddenAbove)
     const holds = k => k.tab ? k.tab.id === current?.sessionId : k.kids.some(holds)
     const kids = hide ? n.kids.filter(holds) : n.kids
-    kids.forEach(k => box.append(k.tab ? row(k.tab, color, depth) : groupEl(k, depth + 1, hide)))
+    kids.forEach(k => box.append(k.tab ? row(k.tab, color, depth, shade) : groupEl(k, depth + 1, hide)))
     box.classList.toggle('empty', !kids.length)
     return box
 }
