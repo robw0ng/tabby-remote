@@ -1,0 +1,261 @@
+:root {
+  color-scheme: dark;
+  --bg: #0d0d0d;
+  --term-bg: #000;
+  --fg: #eee;
+  --dim: #aaa;
+  --line: #2a2a2a;
+  --accent: #86b7f7;
+  --side-w: 300px;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); font: 13px "Segoe UI", system-ui, -apple-system, sans-serif; }
+button { font: inherit; color: inherit; cursor: pointer; }
+[hidden] { display: none !important; }
+
+/* Fixed to the visible area; app.js sizes it above the iOS keyboard (Safari ignores interactive-widget). */
+/* Pan only: no pinch or double-tap page zoom (the terminal handles its own pinch, see app.js). */
+html, body { overflow: hidden; overscroll-behavior: none; touch-action: pan-x pan-y; }
+#app { overflow: hidden; position: fixed; top: 0; left: 0; right: 0; height: var(--vvh, 100dvh); transform: translateY(var(--vvtop, 0px)); display: flex; }
+
+/* ---- Terminal ---- */
+#term-view { flex: 1; min-width: 0; display: flex; flex-direction: column; background: var(--term-bg); }
+#term-head { display: flex; align-items: center; gap: 8px; padding: 6px 10px; padding-top: max(6px, env(safe-area-inset-top)); border-bottom: 1px solid var(--line); background: var(--bg); min-height: 40px; }
+#term-head { position: relative; }
+/* Connection status, just under the header and over the terminal: the terminal itself only shows real output. */
+#status { position: absolute; top: calc(100% + 8px); left: 50%; transform: translateX(-50%); z-index: 10; padding: 5px 14px; border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap; pointer-events: none; box-shadow: 0 2px 10px rgba(0,0,0,.5); }
+#status[data-kind="wait"] { background: #f0a020; color: #1a1200; }
+#status[data-kind="gone"] { background: #d64545; color: #fff; }
+#term-head h1 { flex: 1; min-width: 0; margin: 0; font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#term-icon svg { display: block; }
+.icon-btn { border: 0; background: none; font-size: 18px; padding: 4px 8px; border-radius: 6px; }
+#panes { display: flex; gap: 4px; }
+#panes button { display: flex; align-items: center; gap: 4px; border: 1px solid var(--line); background: #1a1a1a; border-radius: 6px; padding: 3px 6px; }
+#panes button[aria-pressed="true"] { border-color: var(--accent); }
+/* No scrolling of its own: the terminal is always fitted, and xterm (plus app.js on touch) does the scrolling. */
+#term-box { flex: 1; min-height: 0; overflow: hidden; padding: 4px; position: relative; }
+/* Invisible native scroll layer over the terminal on touch screens (see touchScroll in app.js). */
+.scroller { position: absolute; inset: 0; z-index: 5; touch-action: pan-y; overflow-y: scroll; overflow-x: hidden; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; scrollbar-width: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.scroller::-webkit-scrollbar { display: none; }
+.scroller-space { height: 1000000px; }
+/* History scroll bar: a 24px touch strip on the right with a thin thumb drawn in it. */
+.vbar { position: absolute; top: 4px; bottom: 4px; right: 0; width: 24px; z-index: 6; touch-action: none; }
+.vbar-thumb { position: absolute; top: 0; right: 3px; width: 6px; border-radius: 3px; background: rgba(255,255,255,.35); }
+.vbar:active .vbar-thumb { background: rgba(255,255,255,.6); width: 8px; right: 2px; }
+#term-empty { color: var(--dim); text-align: center; margin-top: 30vh; }
+/*
+ * Two rows laid out like a keyboard. Each column is as wide as its keys are on a real keyboard (Shift and Ctrl
+ * widest, Tab, Copy and Paste wide, arrows square) and the same in both rows, so ↑ sits over ↓. The narrow
+ * columns between groups are spacers:
+ *   Esc | Shift ^C  | Copy  | PgUp | Home ↑ End
+ *   Tab | Ctrl  Alt | Paste | PgDn |  ←   ↓  →
+ */
+#keys {
+  display: grid; gap: 4px;
+  grid-template-columns: 1.2fr 2px 1.45fr 1fr 2px 1.3fr 2px 1.25fr 2px 1.3fr 1fr 1.3fr; padding: 4px; padding-bottom: max(4px, env(safe-area-inset-bottom)); background: var(--bg); border-top: 1px solid var(--line); }
+#keys button { min-height: 38px; padding: 0; border: 1px solid var(--line); background: #1e1e1e; border-radius: 6px; font-size: 13px; touch-action: manipulation; -webkit-user-select: none; user-select: none; }
+#keys button:active { background: #333; }
+/* Keyboard up: no home-indicator gap, so the bar sits on the keyboard (app.js sets the class). */
+body.keyboard #keys { padding-bottom: 4px; }
+#keys [data-key="esc"] { grid-area: 1 / 1; }    #keys [data-key="tab"] { grid-area: 2 / 1; }
+#keys [data-key="shift"] { grid-area: 1 / 3; }  #keys [data-key="ctrl"] { grid-area: 2 / 3; }
+#keys [data-key="ctrlc"] { grid-area: 1 / 4; }  #keys [data-key="alt"] { grid-area: 2 / 4; }
+#keys [data-key="copy"] { grid-area: 1 / 6; }   #keys [data-key="paste"] { grid-area: 2 / 6; }
+#keys [data-key="pgup"] { grid-area: 1 / 8; }   #keys [data-key="pgdn"] { grid-area: 2 / 8; }
+#keys [data-key="home"] { grid-area: 1 / 10; }  #keys [data-key="left"] { grid-area: 2 / 10; }
+#keys [data-key="up"] { grid-area: 1 / 11; }    #keys [data-key="down"] { grid-area: 2 / 11; }
+#keys [data-key="end"] { grid-area: 1 / 12; }   #keys [data-key="right"] { grid-area: 2 / 12; }
+/* Arrows read better a size up. */
+#keys [data-key="up"], #keys [data-key="down"], #keys [data-key="left"], #keys [data-key="right"] { font-size: 16px; }
+/* Hold keys: a darker cap and dimmer text until switched on. */
+#keys .mod { background: #151515; color: #bbb; }
+#keys button[aria-pressed="true"] { background: var(--accent); color: #000; }
+
+/* ---- Sidebar, as tabby-groups draws it ---- */
+#side { width: var(--side-w); flex: none; display: flex; flex-direction: column; background: var(--bg); border-left: 1px solid var(--line); }
+/* Spacing copied from tabby-groups: one 6px gap around every panel, nested panels one gap further in,
+   ungrouped rows edge to edge, 14px text, a thin scroll bar. */
+#side { font-size: 14px; }
+#side-head { display: flex; align-items: center; gap: 6px; padding: 6px; padding-top: max(6px, env(safe-area-inset-top)); }
+#search { width: 100%; height: 28px; padding: 0 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,.08); background: rgba(255,255,255,.06); color: inherit; font: inherit; font-size: 12px; outline: none; }
+#search:focus { border-color: rgba(255,255,255,.25); }
+#tree { flex: 1; overflow-y: auto; padding: 0; -webkit-overflow-scrolling: touch; scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.2) transparent; }
+
+.grp { border-radius: 8px; margin: 6px; padding-bottom: 6px; }
+/* A collapsed group showing no rows is just its header (a closed pill), as in tabby-groups. */
+.grp.empty { padding-bottom: 0; }
+/* A subgroup that ends its parent leaves one gap of the parent's colour below it, not two. */
+.grp > .grp:last-child { margin-bottom: 0; }
+.grp-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0 8px; width: 100%; text-align: left; border: 0; background: none; padding: 10px 12px 6px; }
+.grp .grp > .grp-bar > .grp-head { padding: 8px 10px; gap: 0 6px; }
+.grp-bar { display: flex; align-items: center; }
+.grp-bar .grp-head { flex: 1; min-width: 0; }
+.grp-add { flex: none; width: 22px; height: 22px; padding: 0; margin-right: 12px; border-radius: 6px; font-size: 18px; line-height: 22px; text-align: center; color: #d0d0d0; }
+.grp .grp .grp-add { margin-right: 10px; }
+.grp-pin { flex: none; display: flex; margin-right: 6px; color: #d0d0d0; }
+#new-tab { font-size: 20px; padding: 0 8px; color: #d0d0d0; }
+#settings, #hide-list { padding: 4px 6px; color: #d0d0d0; display: flex; }
+#hide-list[hidden] { display: none; }
+.grp-head .caret { display: flex; width: 12px; align-self: center; color: #d0d0d0; transition: transform .15s; }
+.grp-head .caret.open { transform: rotate(90deg); }
+/* Top-level headers have two lines: the chevron lines up with the name. */
+.grp.top > .grp-bar .caret { align-self: flex-start; margin-top: 3px; }
+.grp-head .name { font-weight: 600; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-variant-emoji: emoji; }
+.grp .grp .grp-head .name { font-weight: 500; }
+.grp-head .count { font-size: 11px; color: #d8d8d8; white-space: nowrap; }
+.grp.top > .grp-bar .count { flex-basis: 100%; padding-left: 20px; }
+.row:focus, .grp-head:focus { outline: none; }
+
+/* Rows as tabby-groups draws them: the active one only gets a stronger tint of its panel and brighter text. */
+/* Square rows, Tabby's 38px when there is no folder line, 54px with one. */
+.row { display: flex; align-items: center; width: 100%; text-align: left; border: 0; background: none; padding: 0 10px; min-height: 38px; }
+.row.two-line { min-height: 54px; }
+.row[aria-current="true"] { background: var(--active-bg, rgba(255,255,255,.08)); }
+.row .num { width: 22px; text-align: right; color: #d0d0d0; opacity: .85; font-weight: 700; flex: none; }
+.row .pin { flex: none; margin-left: 10px; color: #d0d0d0; display: flex; }
+.row .icon { flex: none; display: flex; width: 14px; height: 14px; margin: 0 10px; }
+.row .text { min-width: 0; flex: 1; }
+.row .title, .row .cwd { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row .title { color: #d4d4d4; font-variant-emoji: emoji; }
+.row .cwd { font-size: 11px; line-height: 14px; color: #b8b8b8; }
+.row[aria-current="true"] .title { color: #fff; }
+.row[aria-current="true"] .cwd { color: #d8d8d8; }
+
+/* Swipe to close: the row's content slides left over a red Close that grows from the right. */
+.row { position: relative; overflow: hidden; touch-action: pan-y; }
+.row > :not(.close) { transform: translateX(var(--swipe, 0px)); }
+.row.swiping::after { content: 'Close'; position: absolute; top: 0; bottom: 0; right: 0; width: calc(-1 * var(--swipe, 0px)); display: flex; align-items: center; justify-content: center; overflow: hidden; background: #d64545; color: #fff; font-weight: 600; }
+.row.settling > *, .row.settling::after { transition: transform .2s, width .2s; }
+/* Tabby's ✕ on hover, mouse only. */
+.row .close { display: none; flex: none; margin-left: 6px; padding: 2px 6px; border-radius: 4px; color: #bbb; font-size: 12px; }
+@media (hover: hover) and (pointer: fine) { .row:hover .close { display: block; } }
+
+/* Claude's state, as tabby-groups draws it (same blue): busy = an arc spinning round the icon; needs you = a dot on
+   the icon and a bold title; the group roll-up in blue. */
+.row .icon { position: relative; }
+.row.busy .icon::after { content: ''; position: absolute; inset: -4px; border-radius: 50%; border: 2px solid transparent; border-top-color: #86b7f7; animation: agent-spin 1s linear infinite; }
+@keyframes agent-spin { to { transform: rotate(360deg); } }
+.row.needs-you .icon::before { content: ''; position: absolute; top: -3px; right: -3px; width: 8px; height: 8px; border-radius: 50%; background: #86b7f7; }
+.row.needs-you .title { font-weight: 700; color: #fff; }
+.rollup { color: #86b7f7; }
+#toast { position: absolute; top: max(52px, calc(env(safe-area-inset-top) + 46px)); left: 50%; transform: translateX(-50%); z-index: 45; max-width: 90%; padding: 8px 16px; border: 0; border-radius: 999px; background: #86b7f7; color: #0d0d0d; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; box-shadow: 0 4px 14px rgba(0,0,0,.5); }
+
+/* The Copy chip over a selection (double tap a word, triple tap a line). */
+#copy-chip { position: fixed; left: 50%; transform: translateX(-50%); z-index: 46; display: flex; overflow: hidden; border-radius: 10px; background: #2b2f36; box-shadow: 0 4px 14px rgba(0,0,0,.55); }
+#copy-chip button { border: 0; background: none; color: #fff; padding: 9px 16px; font-weight: 600; }
+#copy-chip[hidden] { display: none; }
+
+/* Presence badges: one per other device on the tab, in its colour (the same badges as in Tabby's sidebar). */
+.badges { display: flex; gap: 4px; align-items: center; flex: none; margin-left: 6px; }
+.badge { position: relative; width: 16px; height: 16px; border-radius: 50%; background: var(--c); color: #111; font-size: 10px; font-weight: 700; line-height: 16px; text-align: center; flex: none; }
+.badge.away { opacity: .4; }
+/* Typing: a ring in the device's colour, pulsing. */
+.badge.typing::after { content: ''; position: absolute; inset: -2px; border-radius: 50%; box-shadow: 0 0 0 2px var(--c); animation: badge-pulse 1.2s ease-in-out infinite; }
+@keyframes badge-pulse { 0%, 100% { opacity: .35; } 50% { opacity: 1; } }
+.badge.pc { background: #3a3a3a; color: #d0d0d0; display: flex; align-items: center; justify-content: center; }
+.badge-more { font-size: 11px; color: #d0d0d0; }
+#present { display: flex; align-items: center; gap: 6px; flex: none; }
+#present .sized { font-size: 11px; color: var(--dim); white-space: nowrap; }
+
+/* Drag and drop marks, as tabby-groups draws them. */
+.row, .grp-head { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+.drop-line { position: fixed; z-index: 40; height: 2px; border-radius: 1px; background: #86b7f7; pointer-events: none; }
+.drop-onto { outline: 2px solid #86b7f7; outline-offset: -2px; border-radius: 6px; }
+/* Only a dragged group header dims, as in tabby-groups. */`n.grp-bar.dragging { opacity: .45; }
+.drag-ghost { position: fixed; z-index: 41; pointer-events: none; padding: 4px 10px; border-radius: 6px; background: #2b2f36; color: #fff; white-space: nowrap; box-shadow: 0 4px 12px rgba(0,0,0,.5); }
+
+/* ---- Group and tab menu, as tabby-groups draws its menu ---- */
+#menu { position: absolute; inset: 0; z-index: 35; }
+#menu-card { position: fixed; min-width: 210px; padding: 6px; border-radius: 8px; background: #1f1f1f; border: 1px solid #333; box-shadow: 0 8px 24px rgba(0,0,0,.5); font-size: 13px; color: #ddd; max-height: 80vh; overflow-y: auto; }
+/* Phones: a bottom action sheet over a dimmed page. */
+#menu.sheet { background: rgba(0,0,0,.55); }
+#menu.sheet #menu-card { left: 0; right: 0; bottom: 0; top: auto; border-radius: 12px 12px 0 0; padding: 8px 8px max(8px, env(safe-area-inset-bottom)); font-size: 16px; }
+.menu-item { display: block; width: 100%; text-align: left; border: 0; background: none; padding: 6px 10px; border-radius: 4px; }
+#menu.sheet .menu-item { padding: 12px 14px; }
+.menu-item.danger { color: #ff8a80; }
+.menu-sep { height: 1px; background: #333; margin: 4px 0; }
+/* Peek: the tab's last lines, as a small terminal above its actions. */
+.peek { margin: 2px 2px 6px; padding: 8px; max-height: 40vh; overflow: auto; border-radius: 6px; background: #000; border: 1px solid #2a2a2a; color: #ccc; font: 11px/1.35 Menlo, Consolas, monospace; white-space: pre; }
+.menu-label { padding: 4px 10px; font-size: 11px; opacity: .6; }
+.swatches { display: flex; gap: 8px; padding: 6px 6px 8px; }
+#menu.sheet .swatches { gap: 14px; padding: 8px 14px 12px; }
+.swatch { width: 18px; height: 18px; border-radius: 50%; border: 0; padding: 0; outline: 1px solid transparent; }
+#menu.sheet .swatch { width: 28px; height: 28px; }
+.swatch.on { outline: 1px solid #ddd; outline-offset: 2px; }
+/* "No color": a diagonal strike with a ring. */
+.swatch.none { background: linear-gradient(135deg, transparent 44%, #ddd 44%, #ddd 56%, transparent 56%); box-shadow: inset 0 0 0 2px #ddd; }
+/* A held row or header, waiting to see whether the finger lets go (menu) or moves (drag). */
+.row.held, .grp-head.held { background: rgba(255,255,255,.12); }
+
+/* ---- Copy / Paste sheet ---- */
+#sheet { position: absolute; inset: 0; z-index: 30; display: flex; align-items: flex-end; justify-content: center; background: rgba(0,0,0,.55); }
+.sheet-card { width: 100%; max-width: 640px; max-height: 80%; display: flex; flex-direction: column; gap: 8px; padding: 10px; padding-bottom: max(10px, env(safe-area-inset-bottom)); background: #1a1a1a; border: 1px solid #333; border-radius: 12px 12px 0 0; }
+.sheet-head { display: flex; align-items: center; justify-content: space-between; font-weight: 600; }
+#sheet-text { flex: 1; min-height: 160px; resize: none; padding: 8px; border-radius: 8px; border: 1px solid #333; background: #000; color: var(--fg); font: 13px Menlo, Consolas, monospace; white-space: pre; outline: none; }
+#sheet-extra { display: flex; gap: 8px; }
+#sheet-extra:empty { display: none; }
+#sheet-extra button { flex: 1; min-height: 38px; border-radius: 8px; border: 1px solid #333; background: #222; }
+#sheet-go { min-height: 40px; border: 0; border-radius: 8px; background: var(--accent); color: #000; font-weight: 600; }
+
+/* ---- Sign in ---- */
+#signin { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: var(--bg); padding: 16px; }
+.card { max-width: 340px; width: 100%; text-align: center; }
+.card h1 { font-size: 18px; }
+.card p { color: var(--dim); line-height: 1.5; }
+#scan-btn { width: 100%; min-height: 44px; margin: 4px 0 14px; border: 0; border-radius: 10px; background: var(--accent); color: #0d0d0d; font-weight: 600; font-size: 15px; }
+#attach { display: flex; padding: 6px; color: #d0d0d0; }
+/* One box per digit, like an SMS code field. */
+#code { display: flex; justify-content: center; gap: 8px; margin-top: 8px; }
+#code input { width: 44px; height: 54px; padding: 0; text-align: center; font: 600 24px Menlo, Consolas, monospace; color: var(--fg); background: #111; border: 1px solid #3a3a3a; border-radius: 8px; outline: none; caret-color: var(--accent); }
+#code input:focus { border-color: var(--accent); }
+.or { margin: 20px 0 0; font-size: 12px; }
+#pw-form { display: flex; gap: 6px; margin-top: 10px; }
+.pw-wrap { flex: 1; min-width: 0; display: flex; border: 1px solid var(--line); border-radius: 6px; background: #111; }
+.pw-wrap:focus-within { border-color: var(--accent); }
+#pw { flex: 1; min-width: 0; padding: 8px; border: 0; background: none; color: inherit; font: inherit; outline: none; }
+#pw-show { border: 0; background: none; color: var(--dim); padding: 0 10px; font-size: 12px; }
+#pw-form > button { padding: 8px 12px; border-radius: 6px; border: 1px solid var(--line); background: #222; }
+.err { color: #f77; min-height: 1.2em; }
+
+/* ---- Wide: terminal left, sidebar right, like Tabby. Narrow: one at a time. ---- */
+@media (min-width: 800px) {
+  #show-list, #hide-list { display: none; }
+}
+/* Narrow: the sidebar slides in over the terminal, full screen; the terminal stays connected underneath. */
+@media (max-width: 799px) {
+  #side {
+    position: absolute; inset: 0; width: 100%; z-index: 20; border-left: 0;
+    transform: translateX(100%); visibility: hidden; transition: transform .22s ease, visibility 0s .22s;
+  }
+  #app[data-view="list"] #side { transform: none; visibility: visible; transition: transform .22s ease; }
+  /* Touch-sized rows on phones. */`n  .row { min-height: 44px; font-size: 15px; }`n  .row.two-line { min-height: 58px; }
+  .row .cwd { font-size: 12px; }
+  .grp-head { font-size: 15px; }
+  /* 16px, or iPhone zooms in on focus. */`n  #search { font-size: 16px; height: 36px; padding: 0 12px; }
+}
+
+/* Search bar, under the header: Tabby's search (count, up/down, case, regex, whole word). */
+#find { position: absolute; top: 100%; left: 0; right: 0; z-index: 12; display: flex; align-items: center; gap: 4px; padding: 6px 8px; background: var(--bg); border-bottom: 1px solid var(--line); }
+#find[hidden] { display: none; }
+#find-text { flex: 1; min-width: 0; padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; background: #1a1a1a; color: inherit; font-size: 16px; }
+#find-text.none { color: #f07070; }
+#find-text::-webkit-search-cancel-button { display: none; }
+#find-count { font-size: 12px; color: #aaa; white-space: nowrap; }
+#find button { border: 0; background: none; min-width: 30px; padding: 6px; border-radius: 6px; font-size: 14px; color: #d0d0d0; }
+#find button[hidden] { display: none; }
+#find .opt[aria-pressed="true"] { background: var(--accent); color: #0d0d0d; }
+/* Claude's answers: laid over the bottom of the terminal, so the terminal keeps its size. */
+#answers { position: relative; height: 0; z-index: 30; }
+#answers[hidden] { display: none; }
+#answers > div { position: absolute; left: 0; right: 0; bottom: 0; display: flex; flex-direction: column; gap: 4px; padding: 8px 6px 6px; background: linear-gradient(transparent, rgba(0,0,0,.92) 10px); }
+#answers button { text-align: left; padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px; background: #1e1e1e; color: inherit; font-size: 14px; line-height: 1.3; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; touch-action: manipulation; }
+#answers button:active { background: #333; }
+#answers b { color: var(--accent); margin-right: 6px; }
+
+/* Hover only with a mouse: on touch screens a touch (even one that scrolls) leaves :hover stuck on. */
+@media (hover: hover) and (pointer: fine) {
+  .icon-btn:hover { background: rgba(255,255,255,.08); }
+  .row .close:hover { background: rgba(255,255,255,.12); color: #fff; }
+  .menu-item:hover { background: #2e2e2e; }
+  .swatch:hover { outline-color: #666; }
+}

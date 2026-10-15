@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
+<meta name="theme-color" content="#0d0d0d">
+<title>Tabby Remote</title>
+<!-- Add to Home Screen: opens full screen as its own app. -->
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Tabby">
+<link rel="stylesheet" href="xterm.css">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<div id="app">
+  <section id="term-view" aria-label="Terminal">
+    <header id="term-head">
+      <span id="term-icon"></span>
+      <h1 id="term-title">Tabby Remote</h1>
+      <span id="present"></span>
+      <div id="panes"></div>
+      <!-- Right side, where the sidebar slides in and its ✕ sits: open and close are the same tap. -->
+      <!-- Upload a photo or file: it lands on the PC and its path is pasted at the cursor. -->
+      <!-- Search this tab's text, as Tabby's own search (Ctrl+Shift+F). -->
+      <button id="find-btn" class="icon-btn" aria-label="Search" title="Search (Ctrl+Shift+F)"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></button>
+      <button id="attach" class="icon-btn" aria-label="Upload a file" title="Upload a photo or file"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg></button>
+      <button id="show-list" class="icon-btn" aria-label="Show tabs">☰</button>
+      <div id="status" role="status" hidden></div>
+      <div id="find" hidden>
+        <input id="find-text" type="search" placeholder="Search" enterkeyhint="search" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
+        <span id="find-count"></span>
+        <button id="find-prev" aria-label="Search up" hidden>↑</button>
+        <button id="find-next" aria-label="Search down" hidden>↓</button>
+        <button id="find-case" class="opt" aria-pressed="false" aria-label="Case sensitivity" title="Case sensitivity">Aa</button>
+        <button id="find-regex" class="opt" aria-pressed="false" aria-label="Regular expression" title="Regular expression">.*</button>
+        <button id="find-word" class="opt" aria-pressed="false" aria-label="Whole word" title="Whole word"><u>ab</u></button>
+        <button id="find-close" aria-label="Close search">✕</button>
+      </div>
+    </header>
+    <div id="term-box"><p id="term-empty">Pick a tab.</p></div>
+    <!-- After a double or triple tap selects text. -->
+    <div id="copy-chip" hidden><button id="chip-copy">Copy</button></div>
+    <!-- Claude's question (Yes / No / …) as buttons, just above the key bar. -->
+    <div id="answers" hidden></div>
+    <div id="keys" hidden>
+      <!-- Laid out like a keyboard (placed by app.css): Esc over Tab at the left edge; Shift over Ctrl with Alt
+           beside it; clipboard; page keys; Home and End around ↑, the arrows as an inverted T. -->
+      <button data-key="esc">Esc</button>
+      <button data-key="tab">Tab</button>
+      <button data-key="shift" class="mod" aria-pressed="false">Shift</button>
+      <button data-key="ctrl" class="mod" aria-pressed="false">Ctrl</button>
+      <button data-key="ctrlc" aria-label="Control C">^C</button>
+      <button data-key="alt" class="mod" aria-pressed="false">Alt</button>
+      <button data-key="copy">Copy</button>
+      <button data-key="paste">Paste</button>
+      <button data-key="pgup">PgUp</button>
+      <button data-key="pgdn">PgDn</button>
+      <button data-key="home">Home</button>
+      <button data-key="left" aria-label="Left">←</button>
+      <button data-key="up" aria-label="Up">↑</button>
+      <button data-key="down" aria-label="Down">↓</button>
+      <button data-key="end">End</button>
+      <button data-key="right" aria-label="Right">→</button>
+    </div>
+  </section>
+  <aside id="side" aria-label="Tabs">
+    <div id="side-head">
+      <input id="search" type="search" placeholder="Search tabs, folders, apps, #" autocomplete="off">
+      <button id="new-tab" class="icon-btn" aria-label="New tab" title="New tab">+</button>
+      <!-- This device's settings. -->
+      <button id="settings" class="icon-btn" aria-label="Settings" title="Settings"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
+      <!-- Slides the sidebar back out to the right, the way it came in. -->
+      <button id="hide-list" class="icon-btn" aria-label="Back to the terminal" title="Back to the terminal" hidden><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></button>
+    </div>
+    <nav id="tree"></nav>
+  </aside>
+  <!-- "<tab> needs you": a Claude finished on a tab this page is not showing. Tap to open it. -->
+  <button id="toast" hidden></button>
+  <!-- Group and tab menu: an action sheet on phones, a popover at the pointer with a mouse. -->
+  <section id="menu" hidden><div id="menu-card" role="menu"></div></section>
+  <!-- Copy and Paste: a plain text box, so the phone's own select, copy and paste menus work in it. -->
+  <section id="sheet" hidden>
+    <div class="sheet-card">
+      <div class="sheet-head">
+        <span id="sheet-title"></span>
+        <button id="sheet-close" class="icon-btn" aria-label="Close">✕</button>
+      </div>
+      <textarea id="sheet-text" spellcheck="false" autocapitalize="off" autocorrect="off"></textarea>
+      <div id="sheet-extra"></div>
+      <button id="sheet-go"></button>
+      <!-- Attach: the phone's own picker (Photos, Camera, Files). -->
+      <input id="file-pick" type="file" multiple hidden>
+    </div>
+  </section>
+  <section id="signin" hidden>
+    <div class="card">
+      <h1>Tabby Remote</h1>
+      <p id="signin-msg">Scan the QR in Tabby, or enter its code.</p>
+      <!-- Shows the QR on the PC and opens the camera for one photo of it; the page reads the code from the photo. -->
+      <button id="scan-btn" type="button">Show QR on PC &amp; scan</button>
+      <input id="scan-pick" type="file" accept="image/*" capture="environment" hidden>
+      <form id="code-form" autocomplete="off">
+        <div id="code" role="group" aria-label="Pairing code"></div>
+      </form>
+      <p class="or" hidden>or password</p>
+      <form id="pw-form" hidden>
+        <div class="pw-wrap">
+          <input id="pw" type="password" placeholder="Password" autocomplete="current-password">
+          <button type="button" id="pw-show" aria-pressed="false">Show</button>
+        </div>
+        <button>Sign in</button>
+      </form>
+      <p id="signin-err" class="err"></p>
+    </div>
+  </section>
+</div>
+<script src="xterm.js"></script>
+<script src="addon-fit.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

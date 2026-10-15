@@ -1,0 +1,29 @@
+{
+  "name": "tabby-remote",
+  "version": "0.1.0",
+  "description": "HTTP and WebSocket API to Tabby's terminals, for any client app",
+  "keywords": [
+    "tabby-plugin"
+  ],
+  "author": "robw0ng",
+  "license": "UNLICENSED",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/robw0ng/tabby-remote.git"
+  },
+  "files": [
+    "index.js",
+    "ws.js",
+    "web/",
+    "API.md"
+  ],
+  "main": "index.js",
+  "private": true,
+  "dependencies": {
+    "@xterm/addon-fit": "^0.10.0",
+    "@xterm/addon-search": "^0.15.0",
+    "@xterm/xterm": "^5.5.0",
+    "jsqr": "^1.4.0",
+    "qrcode-generator": "^2.0.4"
+  }
+}
