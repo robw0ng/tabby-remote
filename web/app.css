@@ -143,6 +143,10 @@ body.keyboard #keys { padding-bottom: 4px; }
 .row.asking .icon::before { content: attr(data-ask); top: -5px; right: -6px; width: 12px; height: 12px; background: #f5b54a; color: #111; font: 800 9px/12px system-ui, sans-serif; text-align: center; box-shadow: 0 0 0 2px var(--panel-bg, var(--bg)); position: absolute; border-radius: 50%; }
 .row.asking .title { font-weight: 700; color: #fff; }
 .rollup .asking { color: #f5b54a; }
+/* Background tasks running, as tabby-groups draws it: a green pill with the count at the icon's bottom right, and
+   "· N running" in green on the group. */
+.row .icon .running { position: absolute; bottom: -5px; right: -7px; box-sizing: border-box; min-width: 12px; height: 12px; padding: 0 3px; border-radius: 6px; background: #8ef58a; color: #111; font: 800 8px/12px system-ui, sans-serif; text-align: center; box-shadow: 0 0 0 2px var(--panel-bg, var(--bg)); }
+.rollup .running { color: #8ef58a; }
 #list-badge.asking { background: #f5b54a; }
 #toast { position: absolute; top: max(52px, calc(env(safe-area-inset-top) + 46px)); left: 50%; transform: translateX(-50%); z-index: 45; max-width: 90%; padding: 8px 16px; border: 0; border-radius: 999px; background: #86b7f7; color: #0d0d0d; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; box-shadow: 0 4px 14px rgba(0,0,0,.5); }
 

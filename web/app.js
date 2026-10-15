@@ -312,7 +312,7 @@ function row (s, color, depth, shade = 0) {
     el('span', { className: 'num', textContent: s.index }),
     s.pinned ? el('span', { className: 'pin', ariaLabel: 'pinned' }, pinIcon()) : null,
     // No icon for an app tabby-groups has none for.
-    icons[s.kind] ? askMark(el('span', { className: 'icon' }, iconFor(s.kind, 14)), s.agent?.asking) : null,
+    icons[s.kind] ? agentMarks(el('span', { className: 'icon' }, iconFor(s.kind, 14)), s.agent) : null,
     el('span', { className: 'text' }, el('span', { className: 'title', textContent: s.title }), s.cwd ? el('span', { className: 'cwd', textContent: s.cwd }) : null),
     badges(s),
     // Mouse only (touch swipes the row away): Tabby's ✕ on hover.
@@ -453,10 +453,10 @@ const searching = () => !!$('search').value.trim()
  */
 function rollup (g) {
     const parts = [g.needsYou ? `${g.needsYou} need${g.needsYou === 1 ? 's' : ''} you` : null, g.busy ? `${g.busy} busy` : null].filter(Boolean)
-    if (!parts.length && !g.asking) return null
+    if (!parts.length && !g.asking && !g.running) return null
     return el('span', {
         className: 'rollup',
-        // "· N asking" first, in amber, as in tabby-groups.
+        // As in tabby-groups: "· N asking" in amber, then "· N running" in green, then the blue parts.
         onclick: e => {
             const first = sessions.filter(s => (s.agent?.asking || s.agent?.needsYou) && s.group.includes(g.name))
                 .sort((a, b) => !!b.agent?.asking - !!a.agent?.asking || a.index - b.index)[0]
@@ -465,7 +465,9 @@ function rollup (g) {
             clearTimeout(pendingFold)
             open(first.id)
         },
-    }, g.asking ? el('span', { className: 'asking', textContent: ` · ${g.asking} asking` }) : null, parts.length ? ' · ' + parts.join(' · ') : null)
+    }, g.asking ? el('span', { className: 'asking', textContent: ` · ${g.asking} asking` }) : null,
+    g.running ? el('span', { className: 'running', textContent: ` · ${g.running} running` }) : null,
+    parts.length ? ' · ' + parts.join(' · ') : null)
 }
 
 // ---- "Needs you": a notice when a Claude finishes on a tab this page is not showing ----
@@ -1954,8 +1956,16 @@ function keepBackspaceRepeating (t) {
     for (const type of ['focus', 'input', 'keyup']) ta.addEventListener(type, refill)
 }
 
-/** The mark drawn on a tab's icon while Claude asks: ? for a question, ! for a permission prompt (app.css). */
-function askMark (icon, asking) {
-    if (asking) icon.dataset.ask = asking.kind === 'permission' ? '!' : '?'
+/**
+ * Claude's marks on a tab's icon (app.css): while it asks, ? for a question or ! for a permission prompt (top
+ * right); while tasks run in the background, a green pill with their count (bottom right).
+ */
+function agentMarks (icon, agent) {
+    if (agent?.asking) icon.dataset.ask = agent.asking.kind === 'permission' ? '!' : '?'
+    const bg = agent?.background
+    if (bg?.count) {
+        const what = bg.labels?.length ? bg.labels.join(', ') : `${bg.count} task${bg.count === 1 ? '' : 's'}`
+        icon.append(el('span', { className: 'running', textContent: bg.count, title: `Running in background: ${what}` }))
+    }
     return icon
 }
