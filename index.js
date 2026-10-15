@@ -176,6 +176,30 @@ function install (injector) {
     }
     const presenceTimer = setInterval(() => (clients.size || presenceJson.size) && updatePresence(), 1000)
 
+    // ---- Colours: the terminal colour scheme Tabby uses now, as an xterm.js theme ----
+
+    const config = injector.get(core.ConfigService)
+    const ANSI = ['black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white']
+    function terminalTheme () {
+        // Tabby loads its config after plugins start: no colours until then (the page keeps its defaults).
+        if (!config.store?.terminal) return null
+        const { terminal, appearance } = config.store
+        const light = appearance?.colorSchemeMode === 'light'
+            || (appearance?.colorSchemeMode === 'auto' && matchMedia('(prefers-color-scheme: light)').matches)
+        const s = (light ? terminal.lightColorScheme : terminal.colorScheme) ?? {}
+        const c = s.colors ?? []
+        return {
+            foreground: s.foreground,
+            background: s.background,
+            cursor: s.cursor,
+            cursorAccent: s.cursorAccent,
+            // Tabby's own default for a scheme without one.
+            selectionBackground: s.selection ?? '#88888888',
+            selectionForeground: s.selectionForeground,
+            ...Object.fromEntries(ANSI.flatMap((name, i) => [[name, c[i]], ['bright' + name[0].toUpperCase() + name.slice(1), c[i + 8]]])),
+        }
+    }
+
     // ---- Size rule: the last remote typist sets the size; typing in Tabby takes it back ----
 
     function broadcastSize (pane) {
@@ -230,6 +254,8 @@ function install (injector) {
         let replay = true
         const sub = pane.frontend.resize$.subscribe(() => !replay && setTimeout(() => {
             if (!pane.__trSize) return
+            // A tab started for a remote client settles into Tabby's window first; that is not Tabby taking it back.
+            if (Date.now() - (pane.__trStartedAt ?? 0) < 3000) return pane.session?.resize(pane.__trSize.cols, pane.__trSize.rows)
             pane.__trSize = pane.__trSizer = pane.__trSizerClient = null
             broadcastSize(pane)
         }, 150))
@@ -298,6 +324,7 @@ function install (injector) {
                 setTimeout(resolve, 5000)
             })
             if (!pane.frontend) return conn.close(1011)
+            pane.__trStartedAt = Date.now()
         }
         if (conn.closed) return
 
@@ -332,7 +359,7 @@ function install (injector) {
         await pane.frontendWriteLock
         if (conn.closed || !pane.frontend) return
         const { cols, rows } = pane.frontend.xterm
-        conn.send(JSON.stringify({ type: 'snapshot', cols, rows, data: snapshot }))
+        conn.send(JSON.stringify({ type: 'snapshot', cols, rows, data: snapshot, theme: terminalTheme() }))
         if (pane.__trSize) conn.send(JSON.stringify({ type: 'size', ...pane.__trSize }))
         buffered.forEach(d => conn.send(Buffer.from(d)))
         live = true
@@ -612,6 +639,14 @@ function install (injector) {
     }
     const timer = setInterval(tick, 500)
     const tabbySubs = [app.tabsChanged$, app.activeTabChange$].map(o => o.subscribe(() => setTimeout(tick)))
+    // A new colour scheme in Tabby's settings reaches the attached pages at once.
+    let themeJson = 'null'
+    tabbySubs.push(config.changed$.subscribe(() => {
+        const json = JSON.stringify(terminalTheme())
+        if (json === themeJson) return
+        themeJson = json
+        for (const c of clients) c.conn.send(`{"type":"theme","theme":${json}}`)
+    }))
     // tabby-groups says when a Claude tab turns busy or waiting: pass it on at once.
     const onAgent = () => setTimeout(tick)
     window.addEventListener('tabby-groups:agent', onAgent)
