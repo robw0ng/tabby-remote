@@ -11,7 +11,8 @@ const NO_COLOR = '#9aa0a6'
 // tabby-groups' panel tints: less colour the deeper a panel sits, 6% more on the active row.
 const tintPct = depth => Math.max(20 - depth * 3, 11)
 const ACTIVE_TINT_ADD = 6
-const narrow = matchMedia('(max-width: 799px)')
+// Phone layout (sidebar over the terminal): narrow screens, and phones on their side, which are short.
+const narrow = matchMedia('(max-width: 799px), (max-height: 500px)')
 const touch = matchMedia('(pointer: coarse)')
 
 let token = localStorage.getItem('tabby-remote-token')

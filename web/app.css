@@ -161,7 +161,8 @@ body.keyboard #keys { padding-bottom: 4px; }
 .row, .grp-head { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
 .drop-line { position: fixed; z-index: 40; height: 2px; border-radius: 1px; background: #86b7f7; pointer-events: none; }
 .drop-onto { outline: 2px solid #86b7f7; outline-offset: -2px; border-radius: 6px; }
-/* Only a dragged group header dims, as in tabby-groups. */`n.grp-bar.dragging { opacity: .45; }
+/* Only a dragged group header dims, as in tabby-groups. */
+.grp-bar.dragging { opacity: .45; }
 .drag-ghost { position: fixed; z-index: 41; pointer-events: none; padding: 4px 10px; border-radius: 6px; background: #2b2f36; color: #fff; white-space: nowrap; box-shadow: 0 4px 12px rgba(0,0,0,.5); }
 
 /* ---- Group and tab menu, as tabby-groups draws its menu ---- */
@@ -218,20 +219,18 @@ body.keyboard #keys { padding-bottom: 4px; }
 .err { color: #f77; min-height: 1.2em; }
 
 /* ---- Wide: terminal left, sidebar right, like Tabby. Narrow: one at a time. ---- */
-@media (min-width: 800px) {
+@media (min-width: 800px) and (min-height: 501px) {
   #show-list, #hide-list { display: none; }
 }
 /* Narrow: the sidebar slides in over the terminal, full screen; the terminal stays connected underneath. */
-@media (max-width: 799px) {
+@media (max-width: 799px), (max-height: 500px) {
   #side {
     position: absolute; inset: 0; width: 100%; z-index: 20; border-left: 0;
     transform: translateX(100%); visibility: hidden; transition: transform .22s ease, visibility 0s .22s;
   }
   #app[data-view="list"] #side { transform: none; visibility: visible; transition: transform .22s ease; }
-  /* Touch-sized rows on phones. */`n  .row { min-height: 44px; font-size: 15px; }`n  .row.two-line { min-height: 58px; }
   .row .cwd { font-size: 12px; }
   .grp-head { font-size: 15px; }
-  /* 16px, or iPhone zooms in on focus. */`n  #search { font-size: 16px; height: 36px; padding: 0 12px; }
 }
 
 /* Search bar, under the header: Tabby's search (count, up/down, case, regex, whole word). */
