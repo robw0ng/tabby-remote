@@ -21,7 +21,7 @@ It is also an HTTP + WebSocket API, so you can build your own client. See [API.m
 
 ## Install
 
-Needs Tabby 1.0. For an agent-run install on Windows (safe to rerun, with a check at the end), see [INSTALL.md](INSTALL.md).
+Needs Tabby 1.0. For an agent-run install on Windows or macOS (safe to rerun, with a check at the end), see [INSTALL.md](INSTALL.md).
 
 1. Close Tabby.
 2. In Tabby's plugin folder, install the plugin and its dependencies:
