@@ -19,7 +19,9 @@ Set in Tabby's **Settings > Phone access**, and saved in `tabby-remote.json` in 
 | Key | Value |
 | --- | --- |
 | `enabled` | Phone access on or off (default on). Off: nothing listens and every device is disconnected; devices stay paired. |
-| `port` | Default `7681`. Applies after a Tabby restart. |
+| `name` | What clients call this computer (header, Home Screen icon). Default: the computer's host name. |
+| `computerId` | Permanent random id of this Tabby, created on first start |
+| `port` | Default `7681`. Applies after a Tabby restart. When taken (another Tabby on the same computer), the next free of the 10 after it is used and saved here. |
 | `passwordHash` | The login password as a salted scrypt hash. Login is off while it is empty; QR pairing works without it. |
 | `keepAwake`, `awakeMinutes` | Keep the PC awake while a device is attached, and this many minutes after the last one leaves (default on, 30) |
 | `fsRoots` | Folders `/api/fs` may list. Default none. Only in the file. |
@@ -57,7 +59,7 @@ Every request needs `Authorization: Bearer <deviceToken>`. A WebSocket sends the
 
 | Method | Path | Body / query | Returns |
 | --- | --- | --- | --- |
-| GET | `/api/info` | — | Tabby version, plugin version, host name. No auth. |
+| GET | `/api/info` | — | `{ tabby, plugin, host, id, name, port, password, groups }`: versions, host name, this computer's permanent `id`, display `name` and listening `port` (so a client that knows several computers can tell them apart, also at a new address), whether password login is on, whether tabby-groups is installed. No auth. |
 | POST | `/api/pair` | `{ code, deviceName }` | `{ token, deviceId }` |
 | POST | `/api/login` | `{ password, deviceName }` | `{ token, deviceId }` |
 | GET | `/api/devices` | — | `[{ id, name, created, current }]` |

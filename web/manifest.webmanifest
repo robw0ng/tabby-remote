@@ -1,6 +1,6 @@
 {
-  "name": "Tabby Remote",
-  "short_name": "Tabby",
+  "name": "Tabby · {{computer}}",
+  "short_name": "{{computer}}",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0d0d0d",

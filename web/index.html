@@ -4,14 +4,15 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
 <meta name="theme-color" content="#0d0d0d">
-<title>Tabby Remote</title>
+<title>Tabby · {{computer}}</title>
 <!-- Add to Home Screen: opens full screen as its own app. -->
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon-180.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Tabby">
+<!-- Named after the computer (the server fills it in), so each computer has its own Home Screen icon. -->
+<meta name="apple-mobile-web-app-title" content="{{computer}}">
 <link rel="stylesheet" href="xterm.css">
 <link rel="stylesheet" href="app.css">
 </head>
@@ -20,7 +21,8 @@
   <section id="term-view" aria-label="Terminal">
     <header id="term-head">
       <span id="term-icon"></span>
-      <h1 id="term-title">Tabby Remote</h1>
+      <!-- The tab, and under it which computer this is. -->
+      <div class="term-name"><h1 id="term-title">Tabby Remote</h1><span id="term-host"></span></div>
       <span id="present"></span>
       <div id="panes"></div>
       <!-- Right side, where the sidebar slides in and its ✕ sits: open and close are the same tap. -->

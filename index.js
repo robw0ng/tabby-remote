@@ -33,19 +33,27 @@ function install (injector) {
 
     // Settings (Tabby's Settings > Phone access) and paired devices, outside Tabby's config, which syncs between PCs.
     // Not 7680: Windows Delivery Optimization holds that port on every PC.
-    let store = { enabled: true, port: 7681, passwordHash: null, devices: [], keepAwake: true, awakeMinutes: 30 }
+    let store = { enabled: true, name: null, port: 7681, passwordHash: null, devices: [], keepAwake: true, awakeMinutes: 30 }
     try {
         store = { ...store, ...JSON.parse(fs.readFileSync(storePath, 'utf8')) }
     } catch { }
+    // A permanent id for this Tabby, so a client that knows several computers recognises this one at a new address.
+    const newComputerId = !store.computerId
+    if (newComputerId) store.computerId = crypto.randomBytes(8).toString('hex')
+    // The name a phone shows for this computer: the one set in Settings, else the computer's own.
+    const computerName = () => store.name || os.hostname()
+    const escapeHtml = s => String(s).replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`)
     // The password is kept only as a salted scrypt hash; one saved in plain text by an older version is converted.
     const hashPassword = (pw, salt = crypto.randomBytes(16).toString('hex')) => `${salt}:${crypto.scryptSync(pw, salt, 32).toString('hex')}`
     const passwordOk = pw => {
         const [salt, hash] = (store.passwordHash ?? '').split(':')
         return !!hash && crypto.timingSafeEqual(Buffer.from(hashPassword(String(pw ?? ''), salt).split(':')[1], 'hex'), Buffer.from(hash, 'hex'))
     }
-    // The port the server listens on; a new one from Settings applies after a restart.
-    const listeningPort = store.port
+    // The port the server listens on; a new one from Settings applies after a restart. When it is taken (another Tabby
+    // on this computer), the next free one is used and kept (see startServers).
+    let listeningPort = store.port
     const save = () => fs.writeFileSync(storePath, JSON.stringify(store, null, 2))
+    if (newComputerId) save()
     if (store.password) {
         store.passwordHash = hashPassword(store.password)
         delete store.password
@@ -666,6 +674,11 @@ function install (injector) {
                 'X-Content-Type-Options': 'nosniff',
                 'Cache-Control': 'no-cache',
             })
+            // The page and its manifest carry this computer's name, so each computer's Home Screen icon is named after it.
+            if (url.pathname === '/' || url.pathname === '/manifest.webmanifest') {
+                const named = fs.readFileSync(path.join(__dirname, STATIC[url.pathname]), 'utf8').replaceAll('{{computer}}', escapeHtml(computerName()))
+                return res.end(named)
+            }
             return fs.createReadStream(path.join(__dirname, STATIC[url.pathname])).pipe(res)
         }
 
@@ -696,7 +709,8 @@ function install (injector) {
 
         if (req.method === 'GET' && url.pathname === '/api/info') {
             // groups: tabby-groups is installed, so groups, pins and drag and drop are available.
-            return json(res, 200, { tabby: injector.get(core.PlatformService).getAppVersion(), plugin: VERSION, host: os.hostname(), password: !!store.passwordHash, groups: !!groups() })
+            // id, name, port: which computer this is, for a client that knows several.
+            return json(res, 200, { tabby: injector.get(core.PlatformService).getAppVersion(), plugin: VERSION, host: os.hostname(), id: store.computerId, name: computerName(), port: listeningPort, password: !!store.passwordHash, groups: !!groups() })
         }
 
         if (req.method === 'POST' && url.pathname === '/api/login') {
@@ -892,8 +906,25 @@ function install (injector) {
 
     // Listens on the addresses present when it starts; restart Tabby (or turn it off and on) after joining a new network.
     let servers = []
-    function startServers () {
+    /** Whether nothing else listens on `port` here (another Tabby on this computer takes the same default). */
+    const portFree = port => new Promise(resolve => {
+        const probe = http.createServer()
+        probe.once('error', () => resolve(false))
+        probe.once('listening', () => probe.close(() => resolve(true)))
+        probe.listen(port, '127.0.0.1')
+    })
+    async function startServers () {
         if (servers.length) return
+        // The set port, else the next free one of the 10 after it, kept as this Tabby's port so its links still work.
+        let port = store.port
+        while (!(await portFree(port)) && port < store.port + 10) port++
+        if (servers.length) return
+        if (port !== store.port) {
+            console.warn(`[tabby-remote] port ${store.port} is taken; using ${port}`)
+            store.port = port
+            save()
+        }
+        listeningPort = port
         servers = lanAddresses().map(addr => {
             const s = http.createServer(inZone((req, res) => handle(req, res).catch(e => {
                 console.error('[tabby-remote]', e)
@@ -940,6 +971,7 @@ function install (injector) {
         const pw = h('input', { className: 'form-control', type: 'password', placeholder: store.passwordHash ? 'Set (enter a new one to change it)' : 'None', autocomplete: 'new-password', style: 'width:260px' })
         const port = h('input', { className: 'form-control', type: 'number', min: 1024, max: 65535, value: store.port, style: 'width:110px' })
         const live = new Set([...clients, ...eventClients].map(c => c.device.id))
+        const name = h('input', { className: 'form-control', type: 'text', value: store.name ?? '', placeholder: os.hostname(), maxLength: 40, style: 'width:260px' })
 
         host.replaceChildren(
             h('h3', { className: 'mb-3', textContent: 'Phone access' }),
@@ -947,9 +979,19 @@ function install (injector) {
                 toggle(store.enabled, on => {
                     store.enabled = on
                     save()
-                    if (on) startServers()
+                    if (on) startServers().then(rerender)
                     else stopServers()
                     rerender()
+                })),
+            line('Computer name', 'What phones call this computer: their header, and the name of its Home Screen icon (add the icon again after a change).',
+                name,
+                h('button', {
+                    className: 'btn btn-secondary ms-2', textContent: 'Save',
+                    onclick: () => {
+                        store.name = name.value.trim().slice(0, 40) || null
+                        save()
+                        rerender()
+                    },
                 })),
             line('Address', 'Open it on a phone or tablet on the same Wi-Fi, or scan the QR.',
                 h('code', { className: 'me-3', textContent: `http://${phoneAddress()}:${listeningPort}` }),
