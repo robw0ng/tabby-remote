@@ -33,7 +33,7 @@ function install (injector) {
 
     // Settings (Tabby's Settings > Phone access) and paired devices, outside Tabby's config, which syncs between PCs.
     // Not 7680: Windows Delivery Optimization holds that port on every PC.
-    let store = { enabled: true, name: null, port: 7681, passwordHash: null, devices: [], keepAwake: true, keepScreen: false, awakeMinutes: 30, announce: true }
+    let store = { enabled: true, name: null, port: 7681, passwordHash: null, devices: [], keepAwake: true, keepScreen: false, awakeMinutes: 30, announce: true, autoForget: true, forgetDays: 30 }
     try {
         store = { ...store, ...JSON.parse(fs.readFileSync(storePath, 'utf8')) }
     } catch { }
@@ -54,6 +54,11 @@ function install (injector) {
     let listeningPort = store.port
     const save = () => fs.writeFileSync(storePath, JSON.stringify(store, null, 2))
     if (newComputerId) save()
+    // Devices paired before "last seen" existed count from now, so none is forgotten as "used only once".
+    if (store.devices.some(d => !d.lastSeen)) {
+        store.devices.forEach(d => { d.lastSeen ??= Date.now() })
+        save()
+    }
     if (store.password) {
         store.passwordHash = hashPassword(store.password)
         delete store.password
@@ -415,7 +420,16 @@ function install (injector) {
     const deviceFor = token => {
         if (!token) return null
         const h = sha(token).toString('hex')
-        return store.devices.find(d => d.hash === h) ?? null
+        const device = store.devices.find(d => d.hash === h) ?? null
+        // When it was last used; saved at most once a minute per device.
+        if (device) {
+            const now = Date.now()
+            if (now - (device.lastSeen ?? 0) > 60000) {
+                device.lastSeen = now
+                save()
+            }
+        }
+        return device
     }
 
     const locked = addr => (fails.get(addr)?.until ?? 0) > Date.now()
@@ -438,6 +452,33 @@ function install (injector) {
             if (c.device.id === gone.id) c.conn.close(4001)
         }
     }
+
+    // ---- Forgetting unused devices (a private browser tab pairs a new device every time) ----
+
+    const DAY = 86400000
+    const connectedIds = () => new Set([...clients, ...eventClients].map(c => c.device.id))
+    /**
+     * The devices to forget: not connected now, and either not seen for `days`, or paired over a day ago and never
+     * used after the visit they paired in (a private tab that was closed). Forgetting is Remove: the token stops working.
+     */
+    function unusedDevices (days = store.forgetDays) {
+        const live = connectedIds()
+        const now = Date.now()
+        return store.devices.filter(d => {
+            if (live.has(d.id)) return false
+            const created = Date.parse(d.created) || 0
+            const seen = d.lastSeen ?? created
+            const firstVisitOnly = seen - created < 15 * 60000 && now - created > DAY
+            return now - seen > days * DAY || firstVisitOnly
+        })
+    }
+    function forgetUnused (days) {
+        const gone = unusedDevices(days)
+        gone.forEach(removeDevice)
+        return gone.length
+    }
+    const forgetTimer = setInterval(() => store.autoForget && forgetUnused(), 6 * 3600000)
+    setTimeout(() => store.autoForget && forgetUnused(), 60000)
 
     function newDevice (name) {
         const token = crypto.randomBytes(32).toString('base64url')
@@ -1093,6 +1134,15 @@ function install (injector) {
         port.attach(portRow)
         const nameRow = line('Computer name', 'What phones call this computer: their header and its Home Screen icon (add the icon again after a change).', name.input)
         name.attach(nameRow)
+        const days = field({ type: 'number', min: 1, max: 365, value: store.forgetDays, disabled: !store.autoForget }, v => {
+            store.forgetDays = Math.max(1, Math.min(365, Math.round(Number(v) || 30)))
+        })
+        const daysRow = line('Days unused before forgetting', null, days.input)
+        days.attach(daysRow)
+        const ago = t => {
+            const m = Math.round((Date.now() - (t ?? 0)) / 60000)
+            return m < 2 ? 'just now' : m < 60 ? `${m} min ago` : m < 48 * 60 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} days ago`
+        }
         const minutesRow = line('Minutes awake after the last device leaves', 'A phone that locks drops its connection; this keeps the PC reachable when it comes back.', minutes.input)
         minutes.attach(minutesRow)
 
@@ -1132,15 +1182,25 @@ function install (injector) {
                     save()
                     rerender()
                 }) : null),
-            h('div', { className: 'form-line' }, h('div', { className: 'header' },
-                h('div', { className: 'title', textContent: 'Paired devices' }),
-                h('div', { className: 'description', textContent: 'Remove one to sign it out at once.' }))),
+            line('Forget unused devices', 'A private browser tab pairs as a new device each time. Forgotten: devices not seen for the days below, and ones never used after the visit they paired in (after a day). Never one connected now.',
+                toggle(store.autoForget, on => {
+                    store.autoForget = on
+                    save()
+                    days.input.disabled = !on
+                    if (on) forgetUnused()
+                    rerender()
+                })),
+            daysRow,
+            line('Paired devices', 'Remove one to sign it out at once.', button(`Remove unused (${unusedDevices().length})`, () => {
+                forgetUnused()
+                rerender()
+            })),
             store.devices.length
-                ? h('div', { className: 'list-group mb-3' }, ...store.devices.map(d => h('div', { className: 'list-group-item d-flex align-items-center' },
+                ? h('div', { className: 'list-group mb-3' }, ...[...store.devices].sort((a, b) => (b.lastSeen ?? 0) - (a.lastSeen ?? 0)).map(d => h('div', { className: 'list-group-item d-flex align-items-center' },
                     h('span', { style: `display:inline-block;flex:none;width:10px;height:10px;border-radius:50%;margin-right:10px;background:${colorOf(d)}` }),
                     h('div', { className: 'me-auto' },
                         h('div', { textContent: d.name }),
-                        h('small', { className: 'text-muted', textContent: `Paired ${new Date(d.created).toLocaleDateString()}${live.has(d.id) ? ' · connected now' : ''}` })),
+                        h('small', { className: 'text-muted', textContent: `Paired ${new Date(d.created).toLocaleDateString()} · ${live.has(d.id) ? 'connected now' : `last seen ${ago(d.lastSeen)}`}` })),
                     h('button', {
                         className: 'btn btn-outline-danger btn-sm', textContent: 'Remove',
                         onclick: () => {
@@ -1189,6 +1249,7 @@ function install (injector) {
             ;[...clients, ...eventClients].forEach(c => c.conn.close(1001))
             servers.forEach(s => s.close())
             clearInterval(announceTimer)
+            clearInterval(forgetTimer)
             try {
                 announcer.close()
             } catch { }
