@@ -124,6 +124,24 @@
 </div>
 <script src="xterm.js"></script>
 <script src="addon-fit.js"></script>
-<script src="app.js"></script>
+<!-- Plain scripts sharing one global scope, in this order: each may use what the ones above it define as it loads. -->
+<script src="core.js"></script>
+<script src="signin.js"></script>
+<script src="icons.js"></script>
+<script src="menu.js"></script>
+<script src="sidebar.js"></script>
+<script src="drag.js"></script>
+<script src="actions.js"></script>
+<script src="settings.js"></script>
+<script src="terminal.js"></script>
+<script src="touch.js"></script>
+<script src="editing.js"></script>
+<script src="keys.js"></script>
+<script src="predict.js"></script>
+<script src="clipboard.js"></script>
+<script src="upload.js"></script>
+<script src="claude.js"></script>
+<script src="find.js"></script>
+<script src="main.js"></script>
 </body>
 </html>
