@@ -1533,12 +1533,14 @@ function copyText (text) {
 /**
  * Keyboard copy and paste in a desktop browser (the page is plain http, where the clipboard API is missing): Ctrl+C
  * with a selection copies it instead of sending ^C (without one it is still ^C), and Ctrl+V lets the browser paste
- * into the terminal (bracketed, as xterm pastes) instead of sending ^V. On a Mac, Cmd+C and Cmd+V already work.
+ * into the terminal (bracketed, as xterm pastes) instead of sending ^V. On a Mac, Cmd+C copies the same way, Claude's
+ * selection included; Cmd+V already pastes.
  */
 function keyboardClipboard (t) {
     t.attachCustomKeyEventHandler(e => {
-        if (e.type !== 'keydown' || !e.ctrlKey || e.metaKey || e.altKey) return true
+        if (e.type !== 'keydown' || e.altKey || e.ctrlKey === e.metaKey) return true
         const k = e.key.toLowerCase()
+        if (e.metaKey && k !== 'c') return true
         const text = k === 'c' && selectedText(t)
         if (text) {
             copyText(text).then(ok => flash(ok ? 'Copied' : 'Could not copy'))
