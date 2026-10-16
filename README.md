@@ -53,6 +53,16 @@ Tabby **Settings > Phone access**:
 | Keep this PC awake | On, and 30 minutes after the last device leaves |
 | Paired devices | Remove one to sign it out |
 
+## Reloading without restarting Tabby
+
+After an update on disk, run this in Tabby's DevTools console (or from another plugin) to swap in the new code. The servers close, the new ones start on the same port, paired devices stay paired and connected phones reconnect by themselves:
+
+```js
+window.__tabbyRemote.reload()
+```
+
+To load the plugin from a fresh path instead, clear its files from `require.cache` and call `require('<plugin folder>/index.js').install(injector)`; `install` disposes the running instance first. `window.__tabbyRemote.dispose()` alone stops it and resolves once the port is free.
+
 ## Works with tabby-groups
 
 With [tabby-groups](https://github.com/robw0ng/tabby-groups) installed, the phone sidebar shows the same groups, colours and pins, and changes sync both ways. Without it, the sidebar lists plain tabs.

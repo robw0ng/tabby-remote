@@ -1243,6 +1243,11 @@ function install (injector) {
         awake: () => awake !== null && powerSaveBlocker.isStarted(awake),
         screenOn: () => screenOn !== null && powerSaveBlocker.isStarted(screenOn),
         renderSettings: inZone(renderSettings),
+        /** Loads this plugin's files again from disk and swaps the running instance for the new one. */
+        reload () {
+            Object.keys(require.cache).filter(f => f.startsWith(__dirname + path.sep)).forEach(f => delete require.cache[f])
+            return require(__filename).install(injector)
+        },
         /** Stops everything this instance started; resolves once its servers have released the port. */
         dispose () {
             disposed = true
