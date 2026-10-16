@@ -55,7 +55,6 @@ const api = (path, opts = {}) => fetch(path, { ...opts, headers: { 'Content-Type
 function setStatus (text) {
     $('status').textContent = text ?? ''
     $('status').hidden = !text
-    // Amber while it retries, red when there is nothing to go back to.
     // Amber while something is under way ("Reconnecting…", "Uploading…"), red otherwise.
     $('status').dataset.kind = text?.endsWith('…') ? 'wait' : 'gone'
 }

@@ -90,7 +90,6 @@ function compressIcon () {
  */
 function agentMarks (icon, agent) {
     if (agent?.asking) icon.dataset.ask = agent.asking.kind === 'permission' ? '!' : '?'
-    // Compacting its context: a violet badge with a compress glyph (bottom left).
     if (agent?.compacting) icon.append(el('span', { className: 'compacting', title: `Compacting context (${agent.compacting.trigger})` }, compressIcon()))
     const bg = agent?.background
     if (bg?.count) {

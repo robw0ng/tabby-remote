@@ -70,7 +70,6 @@ function dragMove (x, y) {
     if (drag.cancelled) return
     drag.intent = intentAt(x, y)
     showMark(drag.intent)
-    // Near the top or bottom of the list, it scrolls.
     const t = $('tree').getBoundingClientRect()
     const speed = y < t.top + 40 ? -8 : y > t.bottom - 40 ? 8 : 0
     cancelAnimationFrame(edgeScroll)
@@ -207,7 +206,6 @@ function swipeEnd () {
     tree.addEventListener('pointercancel', up)
     // While held, dragging or swiping by touch, the finger moves the tab, not the list.
     tree.addEventListener('touchmove', e => (drag || swipe || press?.held) && e.preventDefault(), { passive: false })
-    // With a mouse: right-click for the menu.
     tree.addEventListener('contextmenu', e => {
         const target = e.target.closest('.row, .grp-head')
         if (!target) return

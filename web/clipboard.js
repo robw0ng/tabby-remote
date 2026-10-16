@@ -126,7 +126,6 @@ function closeSheet () {
 
 $('sheet-close').onclick = closeSheet
 $('sheet').addEventListener('click', e => e.target === $('sheet') && closeSheet())
-// In a rename box, Enter saves.
 $('sheet-text').addEventListener('keydown', e => {
     if (e.key === 'Enter' && $('sheet').dataset.kind === 'prompt') {
         e.preventDefault()

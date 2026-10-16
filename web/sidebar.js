@@ -202,7 +202,6 @@ function renderTree () {
     showNeedsYou()
 }
 $('search').oninput = renderTree
-// Enter opens the first match; Escape clears the search.
 $('search').addEventListener('keydown', e => {
     if (e.key === 'Enter') $('tree').querySelector('.row')?.click()
     if (e.key === 'Escape') {

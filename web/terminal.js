@@ -2,7 +2,7 @@
 
 function setView (v) {
     $('app').dataset.view = v
-    // ✕ only when there is a terminal to go back to.
+    // The way back only when there is a terminal to go back to.
     $('hide-list').hidden = !current
     if (v === 'list') requestAnimationFrame(revealCurrent)
 }
