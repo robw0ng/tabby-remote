@@ -492,16 +492,25 @@ function install (injector) {
         el.addEventListener('mousedown', e => e.target === el && closeQr())
         overlay = { el, timer: null }
 
+        // The QR is drawn once per code and stays still (a camera cannot lock onto one that is redrawn); only the
+        // countdown changes each second. Dark modules on white, 8 px each, with the 4-module white margin readers need.
+        let shown = null
         const render = () => {
             // A code already used gets replaced, so the QR on screen is always a fresh one.
             if (!pairing || pairing.expires <= Date.now() || pairing.usedUntil) newPairing()
+            const left = Math.max(0, Math.ceil((pairing.expires - Date.now()) / 1000))
+            const countdown = `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`
+            if (shown === pairing.code) {
+                card.querySelector('[data-left]').textContent = countdown
+                return
+            }
+            shown = pairing.code
             const qr = require('qrcode-generator')(0, 'M')
             qr.addData(pairing.url)
             qr.make()
-            const left = Math.max(0, Math.ceil((pairing.expires - Date.now()) / 1000))
             card.innerHTML = `<div style="font-weight:600;font-size:15px;margin-bottom:12px">Phone access</div>
-                <div style="background:#fff;border-radius:6px;padding:8px;display:inline-block;line-height:0">${qr.createSvgTag({ cellSize: 6, margin: 2, scalable: false })}</div>
-                <div style="margin-top:12px;color:#aaa"><b style="color:#eee;letter-spacing:2px">${pairing.code}</b> · ${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}</div>
+                <div style="background:#fff;border-radius:6px;display:inline-block;line-height:0">${qr.createSvgTag({ cellSize: 8, margin: 4, scalable: false })}</div>
+                <div style="margin-top:12px;color:#aaa"><b style="color:#eee;letter-spacing:2px">${pairing.code}</b> · <span data-left>${countdown}</span></div>
                 <div style="margin-top:6px;color:#888;font-size:12px;user-select:text">${pairing.url.split('#')[0]}</div>`
             const close = document.createElement('button')
             close.textContent = 'Close'
@@ -728,6 +737,17 @@ function install (injector) {
         const device = deviceFor(req.headers.authorization?.replace(/^Bearer /, ''))
         if (!device) return json(res, 401, { error: 'unauthorized' })
 
+        // A signed-in device lets another one pair (a phone adding an iPad): the same single-use, 2-minute code as
+        // Tabby's QR button, with its QR drawn here. Only for a device that already has a token, so there is always
+        // existing trust; the new device gets its own token, removable like any other.
+        if (at('POST', /^\/api\/pairing$/)) {
+            const p = newPairing()
+            const qr = require('qrcode-generator')(0, 'M')
+            qr.addData(p.url)
+            qr.make()
+            notifications.notice(`${device.name} is adding a device`)
+            return json(res, 200, { code: p.code, url: p.url, expires: p.expires, svg: qr.createSvgTag({ cellSize: 6, margin: 4, scalable: true }) })
+        }
         if (at('GET', /^\/api\/devices$/)) {
             return json(res, 200, store.devices.map(({ hash, ...d }) => ({ ...d, color: colorOf(d), current: d.id === device.id })))
         }
@@ -954,27 +974,75 @@ function install (injector) {
             e.append(...kids.filter(k => k != null))
             return e
         }
-        const line = (title, description, ...controls) => h('div', { className: 'form-line' },
-            h('div', { className: 'header' }, h('div', { className: 'title', textContent: title }), description && h('div', { className: 'description', textContent: description })),
-            ...controls)
-        const toggle = (on, change) => h('div', { className: 'form-check form-switch' },
-            h('input', { className: 'form-check-input', type: 'checkbox', checked: on, onchange: e => change(e.target.checked) }))
         const rerender = () => renderSettings(host)
+        // Tabby's own row: title and description on the left, the control in the right column (Tabby's CSS sizes a
+        // form-control there; extra buttons sit to its left, so every field and toggle shares one right edge).
+        const line = (title, description, control, ...before) => {
+            const note = h('span', { className: 'ms-2 text-success' })
+            const row = h('div', { className: 'form-line' },
+                h('div', { className: 'header' }, h('div', { className: 'title' }, title, note), description && h('div', { className: 'description', textContent: description })),
+                before.length ? h('div', { className: 'd-flex align-items-center gap-2' }, ...before, control) : control)
+            row.saved = () => {
+                note.textContent = '✓ Saved'
+                setTimeout(() => { note.textContent = '' }, 1500)
+            }
+            return row
+        }
+        // Tabby's right-column field width, also for a field that shares its row with buttons.
+        const FIELD = 'width:198px;flex:none'
+        const toggle = (on, change) => h('div', { className: 'form-check form-switch ms-auto mb-0' },
+            h('input', { className: 'form-check-input', type: 'checkbox', role: 'switch', checked: on, onchange: e => change(e.target.checked) }))
+        const button = (text, onclick) => h('button', { className: 'btn btn-secondary text-nowrap', textContent: text, onclick })
+        /** A field saved on Enter or on leaving it, with a short "Saved" next to its title. */
+        const field = (props, apply) => {
+            const input = h('input', { className: 'form-control', style: FIELD, ...props })
+            let row
+            const commit = () => {
+                if (apply(input.value) !== false) {
+                    save()
+                    row?.saved()
+                }
+            }
+            input.addEventListener('change', commit)
+            input.addEventListener('keydown', e => e.key === 'Enter' && input.blur())
+            return { input, attach: r => (row = r) }
+        }
 
-        const minutes = h('input', {
-            className: 'form-control', type: 'number', min: 0, max: 1440, value: store.awakeMinutes, style: 'width:90px', disabled: !store.keepAwake,
-            onchange: e => {
-                store.awakeMinutes = Math.max(0, Math.min(1440, Math.round(Number(e.target.value) || 0)))
-                save()
-            },
+        const address = `http://${phoneAddress()}:${listeningPort}`
+        const addressBox = h('input', { className: 'form-control', style: FIELD, type: 'text', readOnly: true, value: address })
+
+        const port = field({ type: 'number', min: 1024, max: 65535, value: store.port }, v => {
+            const n = Math.round(Number(v))
+            if (!(n >= 1024 && n <= 65535)) return false
+            store.port = n
+            rerender()
         })
-        const pw = h('input', { className: 'form-control', type: 'password', placeholder: store.passwordHash ? 'Set (enter a new one to change it)' : 'None', autocomplete: 'new-password', style: 'width:260px' })
-        const port = h('input', { className: 'form-control', type: 'number', min: 1024, max: 65535, value: store.port, style: 'width:110px' })
+        const name = field({ type: 'text', value: store.name ?? '', placeholder: os.hostname(), maxLength: 40 }, v => {
+            store.name = v.trim().slice(0, 40) || null
+        })
+        const minutes = field({ type: 'number', min: 0, max: 1440, value: store.awakeMinutes, disabled: !store.keepAwake }, v => {
+            store.awakeMinutes = Math.max(0, Math.min(1440, Math.round(Number(v) || 0)))
+        })
+        // The password is never shown or echoed back: the field is only for typing a new one.
+        const pw = h('input', { className: 'form-control', style: FIELD, type: 'password', placeholder: store.passwordHash ? 'Set' : 'Not set', autocomplete: 'new-password' })
+        const setPassword = () => {
+            if (!pw.value) return
+            store.passwordHash = hashPassword(pw.value)
+            save()
+            rerender()
+        }
+        pw.addEventListener('keydown', e => e.key === 'Enter' && setPassword())
+
         const live = new Set([...clients, ...eventClients].map(c => c.device.id))
-        const name = h('input', { className: 'form-control', type: 'text', value: store.name ?? '', placeholder: os.hostname(), maxLength: 40, style: 'width:260px' })
+        const portRow = line('Port', listeningPort === store.port ? 'Applies after restarting Tabby.' : `Applies after restarting Tabby. Still on ${listeningPort} until then.`, port.input)
+        port.attach(portRow)
+        const nameRow = line('Computer name', 'What phones call this computer: their header and its Home Screen icon (add the icon again after a change).', name.input)
+        name.attach(nameRow)
+        const minutesRow = line('Minutes awake after the last device leaves', 'A phone that locks drops its connection; this keeps the PC reachable when it comes back.', minutes.input)
+        minutes.attach(minutesRow)
 
         host.replaceChildren(
-            h('h3', { className: 'mb-3', textContent: 'Phone access' }),
+            h('h3', { className: 'mb-3', textContent: 'Connection' }),
             line('Phone access', 'Off: nothing listens on the network and connected devices are dropped. They stay paired.',
                 toggle(store.enabled, on => {
                     store.enabled = on
@@ -983,51 +1051,32 @@ function install (injector) {
                     else stopServers()
                     rerender()
                 })),
-            line('Computer name', 'What phones call this computer: their header, and the name of its Home Screen icon (add the icon again after a change).',
-                name,
-                h('button', {
-                    className: 'btn btn-secondary ms-2', textContent: 'Save',
-                    onclick: () => {
-                        store.name = name.value.trim().slice(0, 40) || null
-                        save()
-                        rerender()
-                    },
-                })),
-            line('Address', 'Open it on a phone or tablet on the same Wi-Fi, or scan the QR.',
-                h('code', { className: 'me-3', textContent: `http://${phoneAddress()}:${listeningPort}` }),
-                h('button', { className: 'btn btn-primary', textContent: 'Show QR', onclick: () => showQr() })),
-            line('Keep this PC awake', 'While a device has a tab open, the PC does not go to sleep. The screen may still turn off.',
-                toggle(store.keepAwake, on => {
-                    store.keepAwake = on
+            line('Address', 'Open it on a phone or tablet on the same Wi-Fi, or scan the QR.', addressBox,
+                button('Copy', e => {
+                    require('electron').clipboard.writeText(address)
+                    e.target.textContent = 'Copied'
+                    setTimeout(() => { e.target.textContent = 'Copy' }, 1200)
+                }),
+                button('Show QR', () => showQr())),
+            portRow,
+
+            h('h3', { className: 'mt-4 mb-3', textContent: 'This computer' }),
+            nameRow,
+
+            h('h3', { className: 'mt-4 mb-3', textContent: 'Security' }),
+            line('Password', store.passwordHash ? 'Sign in with this password instead of a QR code. Type a new one to change it.' : 'Optional: sign in with a password instead of a QR code.', pw,
+                button('Set', setPassword),
+                store.passwordHash ? button('Remove', () => {
+                    store.passwordHash = null
                     save()
-                    stayAwake()
-                    minutes.disabled = !on
-                })),
-            line('Minutes awake after the last device leaves', 'A phone that locks drops its connection; this keeps the PC reachable when it comes back.', minutes),
-            line('Password', 'Sign in with a password instead of a QR code. Empty and Save to turn it off.',
-                pw,
-                h('button', {
-                    className: 'btn btn-secondary ms-2', textContent: 'Save',
-                    onclick: () => {
-                        store.passwordHash = pw.value ? hashPassword(pw.value) : null
-                        save()
-                        rerender()
-                    },
-                })),
-            line('Port', 'Applies after restarting Tabby.', port,
-                h('button', {
-                    className: 'btn btn-secondary ms-2', textContent: 'Save',
-                    onclick: () => {
-                        const n = Math.round(Number(port.value))
-                        if (n >= 1024 && n <= 65535) store.port = n
-                        save()
-                        rerender()
-                    },
-                })),
-            h('h3', { className: 'mt-4 mb-3', textContent: 'Paired devices' }),
+                    rerender()
+                }) : null),
+            h('div', { className: 'form-line' }, h('div', { className: 'header' },
+                h('div', { className: 'title', textContent: 'Paired devices' }),
+                h('div', { className: 'description', textContent: 'Remove one to sign it out at once.' }))),
             store.devices.length
-                ? h('div', { className: 'list-group' }, ...store.devices.map(d => h('div', { className: 'list-group-item d-flex align-items-center' },
-                    h('span', { style: `display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:10px;background:${colorOf(d)}` }),
+                ? h('div', { className: 'list-group mb-3' }, ...store.devices.map(d => h('div', { className: 'list-group-item d-flex align-items-center' },
+                    h('span', { style: `display:inline-block;flex:none;width:10px;height:10px;border-radius:50%;margin-right:10px;background:${colorOf(d)}` }),
                     h('div', { className: 'me-auto' },
                         h('div', { textContent: d.name }),
                         h('small', { className: 'text-muted', textContent: `Paired ${new Date(d.created).toLocaleDateString()}${live.has(d.id) ? ' · connected now' : ''}` })),
@@ -1039,8 +1088,17 @@ function install (injector) {
                         },
                     }))))
                 : h('p', { className: 'text-muted', textContent: 'None yet. Scan the QR on a phone to add one.' }),
+
+            h('h3', { className: 'mt-4 mb-3', textContent: 'Power' }),
+            line('Keep this PC awake', 'While a device has a tab open, the PC does not go to sleep. The screen may still turn off.',
+                toggle(store.keepAwake, on => {
+                    store.keepAwake = on
+                    save()
+                    stayAwake()
+                    minutes.input.disabled = !on
+                })),
+            minutesRow,
         )
-        if (store.port !== listeningPort) port.after(h('small', { className: 'text-warning ms-3', textContent: `Still on ${listeningPort} until Tabby restarts` }))
     }
 
     window.__tabbyRemote = {

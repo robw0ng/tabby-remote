@@ -108,7 +108,9 @@
       <form id="code-form" autocomplete="off">
         <div id="code" role="group" aria-label="Pairing code"></div>
       </form>
-      <p class="or" hidden>or password</p>
+      <!-- Away from the PC: the password (set in Tabby), or a code from a device that is already signed in. -->
+      <button id="pw-btn" type="button">Sign in with password</button>
+      <p class="or">Signed in on another device? There: ☰ › ⚙ › Add another device.</p>
       <form id="pw-form" hidden>
         <div class="pw-wrap">
           <input id="pw" type="password" placeholder="Password" autocomplete="current-password">

@@ -67,6 +67,7 @@ function signedIn (t) {
 function signOut (msg) {
     token = null
     localStorage.removeItem('tabby-remote-token')
+    hideMenu()
     // Detach first, so their close handlers do not reconnect and wipe the message below.
     const [e, s] = [events, socket]
     events = socket = null
@@ -74,10 +75,20 @@ function signOut (msg) {
     s?.close()
     $('signin-err').textContent = msg ?? ''
     $('signin').hidden = false
-    // The password row only shows when Tabby has a password set.
-    fetch('/api/info').then(r => r.json()).then(i => {
-        document.querySelector('.or').hidden = $('pw-form').hidden = !i.password
-    }).catch(() => {})
+    $('pw-form').hidden = true
+    // Whether Tabby has a password set: "Sign in with password" then shows the field, else says where to set one.
+    fetch('/api/info').then(r => r.json()).then(i => { hasPassword = !!i.password }).catch(() => {})
+}
+
+let hasPassword = false
+$('pw-btn').onclick = () => {
+    if (!hasPassword) {
+        $('signin-err').textContent = 'No password is set yet. On the PC: Tabby Settings › Phone access › Password.'
+        return
+    }
+    $('signin-err').textContent = ''
+    $('pw-form').hidden = false
+    $('pw').focus()
 }
 
 async function pairWith (code) {
@@ -831,6 +842,8 @@ function settingsMenu () {
         { label: 'Collapsed groups' },
         { text: 'Synced with Tabby', checked: foldMode === 'tabby', run: () => pick('tabby') },
         { text: 'This device only', checked: foldMode === 'device', run: () => pick('device') },
+        { label: 'Devices' },
+        { text: 'Add another device…', run: addDevice },
         // Touch screens: the phone keyboard's word predictions (autocorrect follows the phone's own setting).
         ...touch.matches ? [
             { label: 'Keyboard predictions' },
@@ -891,6 +904,7 @@ function showMenu (items, x, y) {
                 onclick: () => { hideMenu(); it.pick(color) },
             })))
         }
+        if (it.node) return it.node
         if (it.peek) {
             const pre = el('pre', { className: 'peek', textContent: '…' })
             // A server that cannot peek (an older one, until Tabby restarts) just shows no preview.
@@ -1124,10 +1138,16 @@ function renderHead () {
 function open (sessionId, paneId) {
     const s = sessions.find(x => x.id === sessionId)
     if (!s) return
+    // Whether the keyboard was up (typing in the terminal or the predictions box) before this tab switch.
+    const wasTyping = !!term && (document.activeElement === term.textarea || document.activeElement?.id === 'predict')
     $('copy-chip').hidden = true
     if (!s.panes.some(p => p.id === paneId)) paneId = (s.panes.find(p => p.focused) ?? s.panes[0]).id
     // The tab already open: just close the sidebar and carry on.
-    if (current?.sessionId === sessionId && current.paneId === paneId && socket?.readyState === WebSocket.OPEN) return setView('term')
+    if (current?.sessionId === sessionId && current.paneId === paneId && socket?.readyState === WebSocket.OPEN) {
+        setView('term')
+        if (!touch.matches || wasTyping) typeHere(term)
+        return
+    }
     current = { sessionId, paneId }
     remember('last', { sessionId, paneId, title: s.title })
     setView('term')
@@ -1223,6 +1243,12 @@ function open (sessionId, paneId) {
     appCursor = () => t.modes.applicationCursorKeysMode
     touchScroll(box, t, fitSize)
     if (touch.matches) keepBackspaceRepeating(t)
+    keyboardClipboard(t)
+    copyClaudeSelectionOnRelease(t)
+    // Typing goes on in the new tab: always with a keyboard and mouse; on a touch screen only when the phone keyboard
+    // was already up (it stays up; it is never popped up by a tab switch). Done here, inside the tap or key that
+    // switched tabs, which is when iOS allows it.
+    if (!touch.matches || wasTyping) typeHere(t)
     resetPredict()
     closeFind()
     watchChoices(t)
@@ -1488,23 +1514,49 @@ function selectAt (t, screen, e, what) {
 /** Copies text on this device. The page is plain http on the LAN, so where the clipboard API is blocked a
  *  hidden text box and the browser's copy command do it (inside the tap, as browsers require). */
 function copyText (text) {
-    if (navigator.clipboard?.writeText && window.isSecureContext) return navigator.clipboard.writeText(text)
+    if (navigator.clipboard?.writeText && window.isSecureContext) return navigator.clipboard.writeText(text).then(() => true, () => false)
     const was = document.activeElement
     const ta = el('textarea', { value: text, readOnly: true, style: 'position:fixed;top:0;left:0;opacity:0' })
     document.body.append(ta)
     ta.select()
     ta.setSelectionRange(0, text.length)
-    document.execCommand('copy')
+    let ok = false
+    try {
+        ok = document.execCommand('copy')
+    } catch { }
     ta.remove()
     // Back to where typing was, so the keyboard stays up.
     was?.focus?.({ preventScroll: true })
+    return Promise.resolve(ok)
+}
+
+/**
+ * Keyboard copy and paste in a desktop browser (the page is plain http, where the clipboard API is missing): Ctrl+C
+ * with a selection copies it instead of sending ^C (without one it is still ^C), and Ctrl+V lets the browser paste
+ * into the terminal (bracketed, as xterm pastes) instead of sending ^V. On a Mac, Cmd+C and Cmd+V already work.
+ */
+function keyboardClipboard (t) {
+    t.attachCustomKeyEventHandler(e => {
+        if (e.type !== 'keydown' || !e.ctrlKey || e.metaKey || e.altKey) return true
+        const k = e.key.toLowerCase()
+        const text = k === 'c' && selectedText(t)
+        if (text) {
+            copyText(text).then(ok => flash(ok ? 'Copied' : 'Could not copy'))
+            t.clearSelection()
+            e.preventDefault()
+            return false
+        }
+        // Not handled by xterm and not prevented: the browser pastes into xterm's text box.
+        if (k === 'v') return false
+        return true
+    })
 }
 
 $('chip-copy').onclick = () => {
     const text = term?.getSelection() ?? ''
     term?.clearSelection()
     $('copy-chip').hidden = true
-    flash('Copied')
+    copyText(text).then(ok => flash(ok ? 'Copied' : 'Could not copy'))
 }
 
 /**
@@ -1714,12 +1766,17 @@ async function copyToPc () {
 $('attach').onclick = () => term && $('file-pick').click()
 
 // Attach: each picked file uploads to a temp folder on the PC, then its path is pasted at the cursor.
-$('file-pick').addEventListener('change', async () => {
+$('file-pick').addEventListener('change', () => {
     const files = [...$('file-pick').files]
     $('file-pick').value = ''
-    if (!files.length) return
     closeSheet()
-    setStatus(`Uploading ${files.length === 1 ? files[0].name : files.length + ' files'}…`)
+    uploadFiles(files)
+})
+
+/** Uploads files to the PC (Attach, a pasted image, a drop) and types their paths at the cursor, quoted, one each. */
+async function uploadFiles (files) {
+    if (!files.length || !term) return
+    setStatus(`Uploading ${files.length === 1 ? files[0].name || 'image' : files.length + ' files'}…`)
     const paths = []
     for (const f of files) {
         const r = await fetch('/api/upload', { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'X-Filename': encodeURIComponent(f.name || 'photo.jpg') }, body: f }).catch(() => null)
@@ -1728,7 +1785,55 @@ $('file-pick').addEventListener('change', async () => {
     setStatus(null)
     if (paths.length) pastePaths(paths)
     if (paths.length < files.length) flash(paths.length ? 'Some files failed' : 'Upload failed (a Tabby restart may be needed)')
-})
+}
+
+/** The files in a paste or a drop: real files, or an image copied to the clipboard (a screenshot has no file). */
+function filesIn (data) {
+    const files = [...(data?.files ?? [])]
+    if (files.length) return files
+    return [...(data?.items ?? [])].filter(i => i.kind === 'file').map(i => i.getAsFile()).filter(Boolean)
+}
+
+// Pasting an image or a file (a screenshot with Ctrl+V): it uploads, as Attach does, and its path is typed. Text pastes
+// are left to the terminal. Captured first, so it runs before xterm's own paste and the predictions box's.
+document.addEventListener('paste', e => {
+    const files = filesIn(e.clipboardData)
+    if (!files.length || !term || !$('term-view').contains(document.activeElement) && document.activeElement?.id !== 'predict') return
+    e.preventDefault()
+    e.stopPropagation()
+    uploadFiles(files.map((f, i) => f.name && f.name !== 'image.png' ? f : new File([f], `pasted-${Date.now()}-${i + 1}.${(f.type.split('/')[1] || 'png').replace('jpeg', 'jpg')}`, { type: f.type })))
+}, true)
+
+// Dropping files onto the terminal: uploaded, their paths typed, as Attach does. A hint shows while dragging over it.
+{
+    const area = $('term-view')
+    let depth = 0
+    const hasFiles = e => [...(e.dataTransfer?.types ?? [])].includes('Files')
+    area.addEventListener('dragenter', e => {
+        if (!hasFiles(e) || !term) return
+        depth++
+        area.classList.add('dropping')
+    })
+    area.addEventListener('dragover', e => {
+        if (!hasFiles(e) || !term) return
+        e.preventDefault()
+        e.dataTransfer.dropEffect = 'copy'
+    })
+    area.addEventListener('dragleave', () => {
+        if (--depth <= 0) {
+            depth = 0
+            area.classList.remove('dropping')
+        }
+    })
+    area.addEventListener('drop', e => {
+        depth = 0
+        area.classList.remove('dropping')
+        if (!hasFiles(e) || !term) return
+        e.preventDefault()
+        uploadFiles(filesIn(e.dataTransfer))
+        term.focus()
+    })
+}
 
 function closeSheet () {
     $('sheet').hidden = true
@@ -1754,8 +1859,8 @@ $('sheet-go').onclick = async () => {
         if (box.value) term?.paste(box.value)
         return closeSheet()
     }
-    copyText(box.value)
-    $('sheet-go').textContent = 'Copied'
+    const ok = await copyText(box.value)
+    $('sheet-go').textContent = ok ? 'Copied' : 'Could not copy'
     setTimeout(closeSheet, 600)
 }
 
@@ -2098,6 +2203,15 @@ predictBox.addEventListener('input', () => {
     }
 })
 
+// A paste (Cmd/Ctrl+V, or the phone's Paste) goes to the terminal as a paste, bracketed when the app asked for it,
+// not as typed letters. The paste event carries the text even on plain http, where the clipboard API is missing.
+predictBox.addEventListener('paste', e => {
+    const text = e.clipboardData?.getData('text')
+    e.preventDefault()
+    if (text) term?.paste(text)
+    resetPredict()
+})
+
 // A hardware keyboard's keys that are not text.
 predictBox.addEventListener('keydown', e => {
     const named = { Escape: 'esc', Tab: 'tab', ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right', Home: 'home', End: 'end', PageUp: 'pgup', PageDown: 'pgdn' }[e.key]
@@ -2187,3 +2301,89 @@ function replaceSelection (t, data, sel) {
         sendKey('\x7f'.repeat(sel.text.length) + (data === '\x7f' || data === '\b' ? '' : data))
     })
 }
+
+// ---- Add another device: this signed-in device shows a pairing QR and code for the next one ----
+
+async function addDevice () {
+    const r = await api('/api/pairing', { method: 'POST' }).catch(() => null)
+    if (!r?.ok) return flash(r?.status === 404 ? 'Needs a Tabby restart' : 'Could not make a code')
+    const { code, expires, svg } = await r.json()
+    const left = el('span')
+    const qr = el('div', { className: 'pair-qr' })
+    qr.innerHTML = svg
+    const node = el('div', { className: 'pair-box' },
+        qr,
+        el('div', { className: 'pair-code', textContent: code }),
+        el('p', { textContent: 'Scan it with the other device\'s camera, or enter the code on its sign-in screen. Single use.' }),
+        left)
+    const tick = () => {
+        const s = Math.max(0, Math.ceil((expires - Date.now()) / 1000))
+        left.textContent = s ? `Valid for ${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` : 'Expired: open it again for a new code'
+        if (s && !$('menu').hidden) setTimeout(tick, 1000)
+    }
+    showMenu([{ label: 'Add another device' }, { node }, { text: 'Done', run () {} }])
+    tick()
+}
+
+// ---- Claude's own selection ----
+// Claude Code reads the mouse, so a drag in a Claude tab makes Claude's selection, not xterm's; Claude then copies it
+// on the computer running it, out of this page's reach. It draws that selection in a fixed blue, so the page reads
+// the highlighted cells off the screen and copies them on this device instead.
+
+const CLAUDE_SELECTION_BG = 0x264f78
+
+/** The text Claude shows selected on screen, row by row, or ''. */
+function claudeSelection (t) {
+    const b = t.buffer.active
+    const rows = []
+    for (let y = 0; y < t.rows; y++) {
+        const line = b.getLine(b.viewportY + y)
+        if (!line) continue
+        let text = ''
+        let any = false
+        for (let x = 0; x < t.cols; x++) {
+            const c = line.getCell(x)
+            if (c?.isBgRGB() && c.getBgColor() === CLAUDE_SELECTION_BG) {
+                any = true
+                text += c.getChars() || ' '
+            }
+        }
+        if (any) rows.push(text.trimEnd())
+    }
+    return rows.join('\n')
+}
+
+/** What a copy should take: xterm's selection, else Claude's. */
+const selectedText = t => (t.hasSelection() && t.getSelection()) || claudeSelection(t)
+
+/**
+ * With a mouse: releasing a drag in a Claude tab copies Claude's new selection here, as Claude does on its own
+ * computer. Claude draws it a moment after the release, so the page waits for it (still within the click, which
+ * browsers require for copying).
+ */
+function copyClaudeSelectionOnRelease (t) {
+    if (touch.matches) return
+    let down = null
+    t.element.addEventListener('mousedown', e => { down = { x: e.clientX, y: e.clientY } })
+    t.element.addEventListener('mouseup', e => {
+        const dragged = down && Math.hypot(e.clientX - down.x, e.clientY - down.y) > 4
+        down = null
+        if (!dragged || !t.modes.mouseTrackingMode || t.modes.mouseTrackingMode === 'none') return
+        const started = Date.now()
+        const look = () => {
+            const text = claudeSelection(t)
+            if (text) return copyText(text).then(ok => ok && flash('Copied'))
+            if (Date.now() - started < 1000) setTimeout(look, 60)
+        }
+        setTimeout(look, 60)
+    })
+}
+
+// The browser's own Copy (right-click › Copy, Ctrl+Insert, the Edit menu): the terminal's selection, as text.
+document.addEventListener('copy', e => {
+    if (!term || String(window.getSelection?.() ?? '')) return
+    const text = selectedText(term)
+    if (!text) return
+    e.clipboardData.setData('text/plain', text)
+    e.preventDefault()
+})
