@@ -69,7 +69,7 @@ Invoke-RestMethod http://127.0.0.1:7681/api/info
 curl -s http://127.0.0.1:7681/api/info
 ```
 
-Expect `{ tabby, plugin, host, password, groups }`; `plugin` is the version installed.
+Expect `{ tabby, plugin, host, id, name, port, password, groups }`; `plugin` is the version installed. `"password": false` only means password sign-in is not set up; it does not open anything: a device still needs the single-use code from the QR (or a password, once one is set) to get in.
 
 | Result | Meaning |
 | --- | --- |
