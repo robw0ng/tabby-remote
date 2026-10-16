@@ -632,11 +632,13 @@ function install (injector) {
     const terminalTabs = () => app.tabs.filter(t => panesOf(t).length)
 
     // For an API call that runs a command without naming a shell: the user's own shell on macOS and Linux; on Windows,
-    // PowerShell 7 when installed, else Windows PowerShell, which every Windows has.
+    // PowerShell 7 when installed, else Windows PowerShell, which every Windows has. On macOS a login shell, as Tabby's
+    // own default profile starts, so PATH has Homebrew's tools; zsh has been the Mac default since 10.15.
     const win = process.platform === 'win32'
-    const defaultShell = !win ? process.env.SHELL || '/bin/sh'
+    const mac = process.platform === 'darwin'
+    const defaultShell = !win ? process.env.SHELL || (mac ? '/bin/zsh' : '/bin/sh')
         : require('child_process').spawnSync('where', ['pwsh.exe'], { windowsHide: true }).status === 0 ? 'pwsh.exe' : 'powershell.exe'
-    const defaultArgs = win ? ['-NoLogo'] : []
+    const defaultArgs = win ? ['-NoLogo'] : mac ? ['--login'] : []
 
     async function openSession ({ profile, command, args, cwd, run, title, group, parent }) {
         let tab
@@ -1149,7 +1151,7 @@ function install (injector) {
             const m = Math.round((Date.now() - (t ?? 0)) / 60000)
             return m < 2 ? 'just now' : m < 60 ? `${m} min ago` : m < 48 * 60 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} days ago`
         }
-        const minutesRow = line('Minutes awake after the last device leaves', 'A phone that locks drops its connection; this keeps the PC reachable when it comes back.', minutes.input)
+        const minutesRow = line('Minutes awake after the last device leaves', 'A phone that locks drops its connection; this keeps the computer reachable when it comes back.', minutes.input)
         minutes.attach(minutesRow)
 
         host.replaceChildren(
@@ -1217,14 +1219,14 @@ function install (injector) {
                 : h('p', { className: 'text-muted', textContent: 'None yet. Scan the QR on a phone to add one.' }),
 
             h('h3', { className: 'mt-4 mb-3', textContent: 'Power' }),
-            line('Keep this PC awake', 'While a device has a tab open, the PC does not go to sleep. The screen may still turn off.',
+            line('Keep this computer awake', 'While a device has a tab open, the computer does not go to sleep. The screen may still turn off.',
                 toggle(store.keepAwake, on => {
                     store.keepAwake = on
                     save()
                     stayAwake()
                     minutes.input.disabled = !on && !store.keepScreen
                 })),
-            line('Keep the screen on while a device is connected', 'Stops the screen turning off, and with it the lock and standby that can pause Tabby on a laptop. Your PC stays unlocked and unattended while connected.',
+            line('Keep the screen on while a device is connected', 'Stops the screen turning off, and with it the lock and standby that can pause Tabby on a laptop. Your computer stays unlocked and unattended while connected.',
                 toggle(!!store.keepScreen, on => {
                     store.keepScreen = on
                     save()

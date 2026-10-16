@@ -50,7 +50,7 @@ Tabby **Settings > Phone access**:
 | Computer name | The computer's own name. Shown in the phone's header and as its Home Screen icon's name, so each computer gets its own icon. |
 | Port | `7681`, or the next free one when another Tabby on the computer has it |
 | Password sign-in | Off (QR only) |
-| Keep this PC awake | On, and 30 minutes after the last device leaves |
+| Keep this computer awake | On, and 30 minutes after the last device leaves |
 | Paired devices | Remove one to sign it out |
 
 ## Reloading without restarting Tabby

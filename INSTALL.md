@@ -5,7 +5,7 @@ Steps an agent can follow when asked to "install https://github.com/robw0ng/tabb
 | System | Shell | State |
 | --- | --- | --- |
 | Windows | PowerShell | Tested |
-| macOS | zsh | Untested on a real Mac. The plugin uses no Windows-only code: uploads go to the system temp folder; clipboard and keep-awake use Electron. |
+| macOS | zsh | Untested on a real Mac. The plugin uses no Windows-only code: uploads go to the system temp folder; clipboard and keep-awake use Electron. Keep awake stops idle sleep only: closing a MacBook's lid still puts it to sleep. |
 
 ## 0. Check
 
@@ -98,7 +98,7 @@ Do not kill Tabby's process: a killed Tabby loses its last saved tabs.
 | System | First start |
 | --- | --- |
 | Windows | A Windows Firewall prompt may ask about Tabby. Allow it on **private** networks, so phones on the same Wi-Fi can connect, and so this computer's other computers find it (a small announcement on UDP port 41681; when blocked, the phone's list of computers is just empty). |
-| macOS | If the macOS firewall is on, it asks whether Tabby may accept incoming connections: **Allow**. If it was denied earlier, re-allow Tabby in System Settings > Network > Firewall > Options. |
+| macOS | If the macOS firewall is on, it asks whether Tabby may accept incoming connections: **Allow** (this covers the phone port and the UDP 41681 announcement). If it was denied earlier, re-allow Tabby in System Settings > Network > Firewall > Options. On macOS 15 or later, macOS may also ask whether Tabby may find devices on the local network: **Allow**, or the phone's list of other computers stays empty; change it later in System Settings > Privacy & Security > Local Network. |
 
 ## 5. Verify
 

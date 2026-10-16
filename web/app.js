@@ -2003,7 +2003,7 @@ for (const [id, key] of [['find-case', 'caseSensitive'], ['find-regex', 'regex']
 // The search bar's buttons leave the keyboard up for the search box.
 $('find').addEventListener('pointerdown', e => e.target.closest('button') && e.preventDefault())
 document.addEventListener('keydown', e => {
-    if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'f') {
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'f') {
         e.preventDefault()
         openFind()
     }
