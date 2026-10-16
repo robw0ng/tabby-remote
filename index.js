@@ -33,7 +33,7 @@ function install (injector) {
 
     // Settings (Tabby's Settings > Phone access) and paired devices, outside Tabby's config, which syncs between PCs.
     // Not 7680: Windows Delivery Optimization holds that port on every PC.
-    let store = { enabled: true, name: null, port: 7681, passwordHash: null, devices: [], keepAwake: true, awakeMinutes: 30, announce: true }
+    let store = { enabled: true, name: null, port: 7681, passwordHash: null, devices: [], keepAwake: true, keepScreen: false, awakeMinutes: 30, announce: true }
     try {
         store = { ...store, ...JSON.parse(fs.readFileSync(storePath, 'utf8')) }
     } catch { }
@@ -147,15 +147,24 @@ function install (injector) {
     // leaves: a phone that locks drops its connection, and should still find the PC awake when it comes back.
     // The screen may still turn off. Off in Settings > Phone access.
     const { powerSaveBlocker } = require('@electron/remote')
+    // "Keep the screen on" (off by default) also stops the screen turning off. That matters on laptops with Modern
+    // Standby: there the screen turning off locks the PC and lets it drift into standby, which pauses Tabby even
+    // though system sleep is blocked. It shares the minutes after the last device leaves.
     let awake = null
+    let screenOn = null
     let awakeTimer = null
     function stayAwake () {
-        if (!store.keepAwake) return letSleep()
+        if (!store.keepAwake && !store.keepScreen) return letSleep()
         if (clients.size) {
             clearTimeout(awakeTimer)
             awakeTimer = null
             if (awake === null) awake = powerSaveBlocker.start('prevent-app-suspension')
-        } else if (awake !== null && !awakeTimer) {
+            if (store.keepScreen && screenOn === null) screenOn = powerSaveBlocker.start('prevent-display-sleep')
+            if (!store.keepScreen && screenOn !== null) {
+                powerSaveBlocker.stop(screenOn)
+                screenOn = null
+            }
+        } else if ((awake !== null || screenOn !== null) && !awakeTimer) {
             awakeTimer = setTimeout(letSleep, store.awakeMinutes * 60 * 1000)
         }
     }
@@ -163,7 +172,8 @@ function install (injector) {
         clearTimeout(awakeTimer)
         awakeTimer = null
         if (awake !== null) powerSaveBlocker.stop(awake)
-        awake = null
+        if (screenOn !== null) powerSaveBlocker.stop(screenOn)
+        awake = screenOn = null
     }
 
     // For Tabby's own sidebar (tabby-groups draws the badges): each tab carries `__trPresence`, and a
@@ -1065,7 +1075,7 @@ function install (injector) {
         const name = field({ type: 'text', value: store.name ?? '', placeholder: os.hostname(), maxLength: 40 }, v => {
             store.name = v.trim().slice(0, 40) || null
         })
-        const minutes = field({ type: 'number', min: 0, max: 1440, value: store.awakeMinutes, disabled: !store.keepAwake }, v => {
+        const minutes = field({ type: 'number', min: 0, max: 1440, value: store.awakeMinutes, disabled: !store.keepAwake && !store.keepScreen }, v => {
             store.awakeMinutes = Math.max(0, Math.min(1440, Math.round(Number(v) || 0)))
         })
         // The password is never shown or echoed back: the field is only for typing a new one.
@@ -1146,7 +1156,14 @@ function install (injector) {
                     store.keepAwake = on
                     save()
                     stayAwake()
-                    minutes.input.disabled = !on
+                    minutes.input.disabled = !on && !store.keepScreen
+                })),
+            line('Keep the screen on while a device is connected', 'Stops the screen turning off, and with it the lock and standby that can pause Tabby on a laptop. Your PC stays unlocked and unattended while connected.',
+                toggle(!!store.keepScreen, on => {
+                    store.keepScreen = on
+                    save()
+                    stayAwake()
+                    minutes.input.disabled = !on && !store.keepAwake
                 })),
             minutesRow,
         )
@@ -1158,6 +1175,7 @@ function install (injector) {
         showQr: inZone(showQr),
         clients: () => [...clients].map(c => ({ device: c.device.name, pane: c.pane.__trId })),
         awake: () => awake !== null && powerSaveBlocker.isStarted(awake),
+        screenOn: () => screenOn !== null && powerSaveBlocker.isStarted(screenOn),
         renderSettings: inZone(renderSettings),
         dispose () {
             closeQr()

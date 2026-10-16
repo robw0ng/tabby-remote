@@ -314,3 +314,6 @@ body.keyboard #keys { padding-bottom: 4px; }
 /* Dragging files over the terminal: a hint that dropping uploads them. */
 #term-view { position: relative; }
 #term-view.dropping::after { content: 'Drop to upload to the PC and type the path'; position: absolute; inset: 8px; z-index: 50; display: flex; align-items: center; justify-content: center; border: 2px dashed var(--accent); border-radius: 12px; background: rgba(13,13,13,.85); color: var(--fg); font-size: 15px; font-weight: 600; pointer-events: none; }
+/* Underlines (Claude's dashed links on file paths, plain SGR 4) a little below the baseline, as Tabby draws them:
+   right on it, a dashed line reads like a line through small text. */
+.xterm .xterm-rows span { text-underline-offset: 0.2em; }
