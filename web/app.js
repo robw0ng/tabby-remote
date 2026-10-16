@@ -718,11 +718,12 @@ function swipeEnd () {
             if (hasGroups) dragStart(press.target, e.clientX, e.clientY)
             else press = null
         }
-        else if (!press.mouse && moved > 8) {
+        else if (!press.mouse && moved >= AXIS_PX) {
             clearTimeout(press.timer)
             // Mostly sideways on a tab row: a swipe; anything else: the list scrolls.
             const row = press.target.closest('.row')
-            if (row && dx < 0 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+            // The same axis rule as lockAxis, so a row swipe and a sidebar swipe decide alike.
+            if (row && dx < 0 && Math.abs(dx) >= Math.abs(dy) * AXIS_RATIO) {
                 swipe = { row, x: press.x, dx: 0 }
                 row.classList.add('swiping')
                 // Once it is a swipe, the list holds still until the finger lifts.
@@ -1040,21 +1041,40 @@ $('hide-list').onclick = () => setView('term')
  * right), left to right on the sidebar closes it. A quick, mostly sideways swipe only, so scrolling, the cursor
  * slide and swiping a tab row away (leftwards, inside the list) keep their own gestures.
  */
-function sideSwipe (area, dir, act, anyWidth = false) {
-    let start = null
-    area.addEventListener('touchstart', e => {
-        start = e.touches.length === 1 ? { x: e.touches[0].clientX, y: e.touches[0].clientY, t: e.timeStamp } : null
+// One touch, one axis: after AXIS_PX of movement a touch is sideways or up-and-down until the finger lifts. Sideways
+// (clearly more across than down) is the page's: the page stops scrolling. Up-and-down is the browser's: it scrolls
+// and no swipe fires. The swipeable elements also have CSS touch-action: pan-y, so iOS leaves sideways moves alone.
+const AXIS_PX = 10
+const AXIS_RATIO = 1.2
+
+/** Calls `onSwipe(dx, dy, ms)` when a touch on `el` ends that was decided sideways; keeps the page still meanwhile. */
+function lockAxis (el, onSwipe) {
+    let t = null
+    el.addEventListener('touchstart', e => {
+        t = e.touches.length === 1 ? { x: e.touches[0].clientX, y: e.touches[0].clientY, at: e.timeStamp, axis: null } : null
     }, { passive: true })
-    area.addEventListener('touchend', e => {
-        if (!start || !(narrow.matches || anyWidth)) return
+    el.addEventListener('touchmove', e => {
+        if (!t || e.touches.length !== 1) return void (t = null)
+        const dx = e.touches[0].clientX - t.x
+        const dy = e.touches[0].clientY - t.y
+        if (!t.axis && Math.hypot(dx, dy) >= AXIS_PX) t.axis = Math.abs(dx) >= Math.abs(dy) * AXIS_RATIO ? 'x' : 'y'
+        if (t.axis === 'x' && e.cancelable) e.preventDefault()
+    }, { passive: false })
+    el.addEventListener('touchend', e => {
         const p = e.changedTouches[0]
-        const dx = p.clientX - start.x
-        const dy = p.clientY - start.y
-        const quick = e.timeStamp - start.t < 600
-        const sliding = area.querySelector('.scroller')?.dataset.sliding
-        start = null
-        if (quick && !sliding && !drag && !swipe && dx * dir > 60 && Math.abs(dx) > Math.abs(dy) * 2) act()
+        if (t?.axis === 'x') onSwipe(p.clientX - t.x, p.clientY - t.y, e.timeStamp - t.at)
+        t = null
     }, { passive: true })
+    el.addEventListener('touchcancel', () => { t = null }, { passive: true })
+}
+
+function sideSwipe (area, dir, act, anyWidth = false) {
+    lockAxis(area, (dx, dy, ms) => {
+        if (!(narrow.matches || anyWidth)) return
+        // Not when the move was something else: a cursor slide, a drag, a row swipe.
+        const sliding = area.querySelector('.scroller')?.dataset.sliding
+        if (ms < 600 && !sliding && !drag && !swipe && dx * dir > 60) act()
+    })
 }
 sideSwipe($('term-box'), -1, () => setView('list'))
 sideSwipe($('side'), 1, () => current && setView('term'))
