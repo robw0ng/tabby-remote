@@ -43,6 +43,7 @@ const remember = (key, value) => {
 let current = null // { sessionId, paneId }
 let me = null // this device: { id, name, color }
 let hasGroups = true // tabby-groups is installed in Tabby
+let computer = '' // this computer's name, from the server
 let socket = null
 let term = null
 let events = null
@@ -212,7 +213,11 @@ async function start () {
     // Which device this page is, so its own badge is left out (its tab is already highlighted).
     me = (await (await api('/api/devices')).json().catch(() => [])).find?.(d => d.current) ?? me
     // Without tabby-groups there are no groups, pins or drag and drop: those controls stay hidden.
-    hasGroups = (await (await fetch('/api/info')).json().catch(() => ({}))).groups !== false
+    const info = await (await fetch('/api/info')).json().catch(() => ({}))
+    hasGroups = info.groups !== false
+    // Which computer this is (an older server sends no name).
+    computer = info.name ?? ''
+    $('term-host').textContent = computer
     renderTree()
     listen()
     if (current && socket?.readyState === WebSocket.OPEN) return
@@ -453,7 +458,7 @@ const searching = () => !!$('search').value.trim()
  */
 function rollup (g) {
     const parts = [g.needsYou ? `${g.needsYou} need${g.needsYou === 1 ? 's' : ''} you` : null, g.busy ? `${g.busy} busy` : null].filter(Boolean)
-    if (!parts.length && !g.asking && !g.running) return null
+    if (!parts.length && !g.asking && !g.running && !g.compacting) return null
     return el('span', {
         className: 'rollup',
         // As in tabby-groups: "· N asking" in amber, then "· N running" in green, then the blue parts.
@@ -467,6 +472,7 @@ function rollup (g) {
         },
     }, g.asking ? el('span', { className: 'asking', textContent: ` · ${g.asking} asking` }) : null,
     g.running ? el('span', { className: 'running', textContent: ` · ${g.running} running` }) : null,
+    g.compacting ? el('span', { className: 'compacting', textContent: ` · ${g.compacting} compacting` }) : null,
     parts.length ? ' · ' + parts.join(' · ') : null)
 }
 
@@ -496,7 +502,7 @@ function watchAgents (before, after) {
 function showNeedsYou () {
     // Asking counts too, and turns the badge amber.
     const n = sessions.filter(s => s.agent?.needsYou || s.agent?.asking).length
-    document.title = n ? `(${n}) Tabby Remote` : 'Tabby Remote'
+    document.title = `${n ? `(${n}) ` : ''}Tabby${computer ? ` · ${computer}` : ' Remote'}`
     $('list-badge').classList.toggle('asking', sessions.some(s => s.agent?.asking))
     $('list-badge').hidden = !n
     $('list-badge').textContent = n > 9 ? '9+' : n
@@ -1956,12 +1962,28 @@ function keepBackspaceRepeating (t) {
     for (const type of ['focus', 'input', 'keyup']) ta.addEventListener(type, refill)
 }
 
+/** Lucide 'minimize-2' (ISC, lucide.dev): four strokes pointing inward. */
+function compressIcon () {
+    const ns = 'http://www.w3.org/2000/svg'
+    const svg = document.createElementNS(ns, 'svg')
+    svg.setAttribute('viewBox', '0 0 24 24')
+    for (const d of ['M4 14h6v6', 'M20 10h-6V4', 'M14 10l7-7', 'M3 21l7-7']) {
+        const p = document.createElementNS(ns, 'path')
+        p.setAttribute('d', d)
+        svg.appendChild(p)
+    }
+    return svg
+}
+
 /**
  * Claude's marks on a tab's icon (app.css): while it asks, ? for a question or ! for a permission prompt (top
- * right); while tasks run in the background, a green pill with their count (bottom right).
+ * right); while tasks run in the background, a green pill with their count (bottom right); while it compacts its
+ * context, a violet badge (bottom left).
  */
 function agentMarks (icon, agent) {
     if (agent?.asking) icon.dataset.ask = agent.asking.kind === 'permission' ? '!' : '?'
+    // Compacting its context: a violet badge with a compress glyph (bottom left).
+    if (agent?.compacting) icon.append(el('span', { className: 'compacting', title: `Compacting context (${agent.compacting.trigger})` }, compressIcon()))
     const bg = agent?.background
     if (bg?.count) {
         const what = bg.labels?.length ? bg.labels.join(', ') : `${bg.count} task${bg.count === 1 ? '' : 's'}`

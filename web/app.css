@@ -26,7 +26,10 @@ html, body { overflow: hidden; overscroll-behavior: none; touch-action: pan-x pa
 #status { position: absolute; top: calc(100% + 8px); left: 50%; transform: translateX(-50%); z-index: 10; padding: 5px 14px; border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap; pointer-events: none; box-shadow: 0 2px 10px rgba(0,0,0,.5); }
 #status[data-kind="wait"] { background: #f0a020; color: #1a1200; }
 #status[data-kind="gone"] { background: #d64545; color: #fff; }
-#term-head h1 { flex: 1; min-width: 0; margin: 0; font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.term-name { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+#term-host { font-size: 10px; line-height: 1.2; color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#term-host:empty { display: none; }
+#term-head h1 { min-width: 0; margin: 0; font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #term-icon svg { display: block; }
 .icon-btn { border: 0; background: none; font-size: 18px; padding: 4px 8px; border-radius: 6px; }
 #panes { display: flex; gap: 4px; }
@@ -147,6 +150,11 @@ body.keyboard #keys { padding-bottom: 4px; }
    "· N running" in green on the group. */
 .row .icon .running { position: absolute; bottom: -5px; right: -7px; box-sizing: border-box; min-width: 12px; height: 12px; padding: 0 3px; border-radius: 6px; background: #8ef58a; color: #111; font: 800 8px/12px system-ui, sans-serif; text-align: center; box-shadow: 0 0 0 2px var(--panel-bg, var(--bg)); }
 .rollup .running { color: #8ef58a; }
+/* Compacting its context, as tabby-groups draws it: a violet round badge with a compress glyph at the icon's bottom
+   left, and "· N compacting" in violet on the group. */
+.row .icon .compacting { position: absolute; bottom: -5px; left: -6px; width: 12px; height: 12px; border-radius: 50%; background: #d7cff9; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 0 2px var(--panel-bg, var(--bg)); }
+.row .icon .compacting svg { width: 8px; height: 8px; fill: none; stroke: #111; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+.rollup .compacting { color: #d7cff9; }
 #list-badge.asking { background: #f5b54a; }
 #toast { position: absolute; top: max(52px, calc(env(safe-area-inset-top) + 46px)); left: 50%; transform: translateX(-50%); z-index: 45; max-width: 90%; padding: 8px 16px; border: 0; border-radius: 999px; background: #86b7f7; color: #0d0d0d; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; box-shadow: 0 4px 14px rgba(0,0,0,.5); }
 
