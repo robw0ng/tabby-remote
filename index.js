@@ -20,7 +20,9 @@ function lanAddresses () {
 }
 
 function install (injector) {
-    window.__tabbyRemote?.dispose()
+    // Reloading in place (a new index.js, Tabby kept running): the old instance lets go first, and the new server
+    // starts once the old one has released its port.
+    const previous = Promise.resolve(window.__tabbyRemote?.dispose()).catch(() => {})
 
     const app = injector.get(core.AppService)
     const profiles = injector.get(core.ProfilesService)
@@ -52,7 +54,9 @@ function install (injector) {
     // The port the server listens on; a new one from Settings applies after a restart. When it is taken (another Tabby
     // on this computer), the next free one is used and kept (see startServers).
     let listeningPort = store.port
-    const save = () => fs.writeFileSync(storePath, JSON.stringify(store, null, 2))
+    // After dispose this instance never writes again, so a stale copy cannot overwrite the new instance's settings.
+    let disposed = false
+    const save = () => disposed || fs.writeFileSync(storePath, JSON.stringify(store, null, 2))
     if (newComputerId) save()
     // Devices paired before "last seen" existed count from now, so none is forgotten as "used only once".
     if (store.devices.some(d => !d.lastSeen)) {
@@ -478,7 +482,7 @@ function install (injector) {
         return gone.length
     }
     const forgetTimer = setInterval(() => store.autoForget && forgetUnused(), 6 * 3600000)
-    setTimeout(() => store.autoForget && forgetUnused(), 60000)
+    const forgetSoon = setTimeout(() => store.autoForget && forgetUnused(), 60000)
 
     function newDevice (name) {
         const token = crypto.randomBytes(32).toString('base64url')
@@ -990,6 +994,8 @@ function install (injector) {
     })
     async function startServers () {
         if (servers.length) return
+        await previous
+        if (disposed) return
         // The set port, else the next free one of the 10 after it, kept as this Tabby's port so its links still work.
         let port = store.port
         while (!(await portFree(port)) && port < store.port + 10) port++
@@ -1237,7 +1243,10 @@ function install (injector) {
         awake: () => awake !== null && powerSaveBlocker.isStarted(awake),
         screenOn: () => screenOn !== null && powerSaveBlocker.isStarted(screenOn),
         renderSettings: inZone(renderSettings),
+        /** Stops everything this instance started; resolves once its servers have released the port. */
         dispose () {
+            disposed = true
+            clearTimeout(forgetSoon)
             closeQr()
             letSleep()
             clearInterval(timer)
@@ -1247,13 +1256,19 @@ function install (injector) {
             window.dispatchEvent(new CustomEvent('tabby-remote:presence'))
             tabbySubs.forEach(s => s.unsubscribe())
             ;[...clients, ...eventClients].forEach(c => c.conn.close(1001))
-            servers.forEach(s => s.close())
+            const closed = servers.map(s => new Promise(resolve => {
+                s.close(resolve)
+                s.closeAllConnections?.()
+            }))
+            servers = []
             clearInterval(announceTimer)
             clearInterval(forgetTimer)
             try {
                 announcer.close()
             } catch { }
             delete window.__tabbyRemote
+            // Never waits long: a socket that will not close does not hold up the next instance.
+            return Promise.race([Promise.all(closed), new Promise(resolve => setTimeout(resolve, 2000))])
         },
     }
     return window.__tabbyRemote
