@@ -2,7 +2,7 @@
 
 You were given a zip holding this file, README.md and a `tabby-remote` folder. Install that folder into Tabby. Every step is safe to run again.
 
-Rules: no admin rights; touch nothing outside Tabby's plugins folder; never kill Tabby's process (it loses the user's open tabs).
+Rules: no admin rights; touch nothing outside Tabby's plugins folder (apart from installing Tabby itself in step 1, with the user's yes); never kill Tabby's process (it loses the user's open tabs).
 
 ## 1. Find Tabby's plugins folder
 
@@ -23,7 +23,19 @@ tabby="$HOME/Library/Application Support/tabby"
 test -d "$tabby" && echo found
 ```
 
-Tabby's data folder (`tabby`) is missing → Tabby is not installed, or has never been started: stop and tell the user. Inside it, create `plugins/node_modules` if it is missing.
+Tabby's data folder (`tabby`) is missing → Tabby is not installed, or has never been started:
+
+1. Ask the user whether to install Tabby. If they say no, stop.
+2. Install it:
+
+   | System | Command |
+   | --- | --- |
+   | Windows | `winget install --id Eugeny.Tabby -e` |
+   | macOS | `brew install --cask tabby` |
+
+3. Ask the user to open Tabby once and quit it (macOS: Cmd+Q), so its data folder exists. Then check for the folder again.
+
+Inside it, create `plugins/node_modules` if it is missing.
 
 ## 2. An earlier install
 
