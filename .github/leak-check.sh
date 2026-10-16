@@ -12,6 +12,10 @@ leak () {
 }
 
 [ -f "$dir/INSTALL.md" ] && [ -f "$dir/README.md" ] && [ -f "$dir/tabby-remote/index.js" ] || leak 'the zip must hold INSTALL.md, README.md and tabby-remote/'
+# Every runtime file package.json lists must be in it (its docs are not shared).
+for f in $(node -p "require('./package.json').files.filter(f => !f.endsWith('.md')).join(' ')"); do
+    [ -e "$dir/tabby-remote/$f" ] || leak "tabby-remote/$f is missing"
+done
 for name in BRIEF.md .git .github share; do
     find "$dir" -name "$name" | grep -q . && leak "$name is in the zip"
 done

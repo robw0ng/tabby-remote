@@ -9,7 +9,9 @@ out="$root/tabby-remote"
 rm -rf dist
 mkdir -p "$out"
 cp share/INSTALL.md share/README.md "$root/"
-cp -r index.js ws.js web package.json package-lock.json "$out/"
+# The runtime files: package.json's "files" (the list an install copies into Tabby), without its docs.
+for f in $(node -p "require('./package.json').files.filter(f => !f.endsWith('.md')).join(' ')"); do cp -r "$f" "$out/"; done
+cp package.json package-lock.json "$out/"
 (cd "$out" && npm ci --omit=dev --ignore-scripts --no-audit --no-fund)
 rm "$out/package-lock.json"
 # A coworker needs no link to the private repo, and the dependencies' own docs are not needed to run them.
