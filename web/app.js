@@ -831,6 +831,12 @@ function settingsMenu () {
         { label: 'Collapsed groups' },
         { text: 'Synced with Tabby', checked: foldMode === 'tabby', run: () => pick('tabby') },
         { text: 'This device only', checked: foldMode === 'device', run: () => pick('device') },
+        // Touch screens: the phone keyboard's word predictions (autocorrect follows the phone's own setting).
+        ...touch.matches ? [
+            { label: 'Keyboard predictions' },
+            { text: 'On', checked: predicting, run: () => setPredicting(true) },
+            { text: 'Off', checked: !predicting, run: () => setPredicting(false) },
+        ] : [],
     ], r.left, r.bottom)
 }
 $('settings').onclick = settingsMenu
@@ -1211,6 +1217,7 @@ function open (sessionId, paneId) {
     appCursor = () => t.modes.applicationCursorKeysMode
     touchScroll(box, t, fitSize)
     if (touch.matches) keepBackspaceRepeating(t)
+    resetPredict()
     closeFind()
     watchChoices(t)
 }
@@ -1329,7 +1336,7 @@ function touchScroll (box, t, fitSize) {
         // No cursor line on screen (scrolled up, or Tabby took the size back): any tap starts typing again.
         const shown = layer.getBoundingClientRect()
         const visible = row >= 0 && row < t.rows && middle >= shown.top && middle <= shown.bottom
-        if (!visible) return t.focus()
+        if (!visible) return typeHere(t)
         if (Math.abs(e.clientY - middle) > reach) {
             // Waits a moment: if a second tap follows, it is a double tap (select), and the keyboard stays.
             clearTimeout(pendingBlur)
@@ -1339,7 +1346,7 @@ function touchScroll (box, t, fitSize) {
             }, 320)
             return
         }
-        t.focus()
+        typeHere(t)
         // Tap on the line being typed: move the cursor to that spot, as in a text field. The distance in cells
         // (rows count as whole widths, for input that wraps) becomes ← or →; the shell or Claude stops at the ends.
         const tapRow = Math.max(0, Math.min(t.rows - 1, Math.floor((e.clientY - screen.top) / cell)))
@@ -1761,6 +1768,8 @@ $('keys').addEventListener('click', e => {
     if (!k) return
     if (k === 'ctrl' || k === 'alt' || k === 'shift') return setMod(k, !mods[k])
     if (k === 'copy' || k === 'paste') return openSheet(k)
+    // The line changed in a way the predictions box cannot follow (a cursor move, Tab completion, history).
+    resetPredict()
     sendKey(keySeq(k))
     clearMods()
 })
@@ -2011,3 +2020,77 @@ function agentMarks (icon, agent) {
     }
     return icon
 }
+
+// ---- Keyboard predictions (a ⚙ setting on touch screens) ----
+// The phone keyboard only predicts words for a text box it can read. With the setting on, typing goes into an
+// invisible box that holds what was typed on this line since its last reset; each change (a key, a tapped
+// prediction, dictation) is passed to the terminal at once as deletes plus new text. Anything that changes the line
+// another way (Return, a key-bar key, a tap on the terminal, another tab) resets the box, so it never deletes text
+// it did not type. Autocorrect follows the phone's own setting.
+
+let predicting = touch.matches && !!saved('predictions')
+// Something to delete at the start of a line, so ⌫ still reaches the terminal there (and repeats when held). Plain
+// spaces: iOS shows no predictions after unusual characters.
+const PAD = ' '.repeat(4)
+const predictBox = el('textarea', { id: 'predict', rows: 1, spellcheck: true, tabIndex: -1, ariaLabel: 'Typing' })
+predictBox.setAttribute('autocorrect', 'on')
+predictBox.setAttribute('autocapitalize', 'off')
+document.body.append(predictBox)
+let typed = []
+
+function resetPredict () {
+    typed = []
+    predictBox.value = PAD
+    predictBox.setSelectionRange(PAD.length, PAD.length)
+}
+
+function setPredicting (on) {
+    predicting = on
+    remember('predictions', on)
+    if (!on && document.activeElement === predictBox) term?.focus()
+}
+
+/** Where typing goes after a tap on the terminal: the predictions box, or the terminal itself. */
+function typeHere (t) {
+    if (!predicting) return t.focus()
+    resetPredict()
+    predictBox.focus()
+}
+
+predictBox.addEventListener('beforeinput', e => {
+    // Return: Enter to the terminal, and a fresh line.
+    if (e.inputType !== 'insertLineBreak' && e.inputType !== 'insertParagraph') return
+    e.preventDefault()
+    sendKey('\r')
+    resetPredict()
+})
+
+predictBox.addEventListener('input', () => {
+    const value = predictBox.value
+    // The padding is the first PAD.length spaces; spaces typed at the start of the line come after it.
+    const pad = Math.min(value.match(/^ */)[0].length, PAD.length)
+    const now = [...value.slice(pad)]
+    // ⌫ into the padding deletes before this line's start, in the terminal.
+    let dels = PAD.length - pad
+    let same = 0
+    while (same < typed.length && same < now.length && typed[same] === now[same]) same++
+    dels += typed.length - same
+    const add = now.slice(same).join('')
+    if (dels > 0) sendKey('\x7f'.repeat(dels))
+    if (add) sendKey(applyMods(add))
+    typed = now
+    if (pad !== PAD.length) {
+        predictBox.value = PAD + now.join('')
+        predictBox.setSelectionRange(predictBox.value.length, predictBox.value.length)
+    }
+})
+
+// A hardware keyboard's keys that are not text.
+predictBox.addEventListener('keydown', e => {
+    const named = { Escape: 'esc', Tab: 'tab', ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right', Home: 'home', End: 'end', PageUp: 'pgup', PageDown: 'pgdn' }[e.key]
+    const ctrl = e.ctrlKey && e.key.length === 1 && /[a-z]/i.test(e.key) ? String.fromCharCode(e.key.toUpperCase().charCodeAt(0) & 31) : null
+    if (!named && !ctrl) return
+    e.preventDefault()
+    resetPredict()
+    sendKey(ctrl ?? (KEYS[named] ?? keySeq(named)))
+})

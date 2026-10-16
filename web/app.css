@@ -150,6 +150,10 @@ body.keyboard #keys { padding-bottom: 4px; }
    "· N running" in green on the group. */
 .row .icon .running { position: absolute; bottom: -5px; right: -7px; box-sizing: border-box; min-width: 12px; height: 12px; padding: 0 3px; border-radius: 6px; background: #8ef58a; color: #111; font: 800 8px/12px system-ui, sans-serif; text-align: center; box-shadow: 0 0 0 2px var(--panel-bg, var(--bg)); }
 .rollup .running { color: #8ef58a; }
+/* Keyboard predictions: the box the phone keyboard types into (app.js keeps it in sync with the terminal). iOS only
+   predicts for a box it takes as a real, visible field, so it is full size and opaque, just drawn see-through and
+   tucked behind the page. 16px so iPhone does not zoom in on it. */
+#predict { position: fixed; left: 0; right: 0; bottom: 0; z-index: -1; width: 100%; height: 44px; margin: 0; padding: 8px; border: 0; outline: none; background: transparent; color: transparent; -webkit-text-fill-color: transparent; caret-color: transparent; font-size: 16px; resize: none; pointer-events: none; }
 /* Compacting its context, as tabby-groups draws it: a violet round badge with a compress glyph at the icon's bottom
    left, and "· N compacting" in violet on the group. */
 .row .icon .compacting { position: absolute; bottom: -5px; left: -6px; width: 12px; height: 12px; border-radius: 50%; background: #d7cff9; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 0 2px var(--panel-bg, var(--bg)); }
