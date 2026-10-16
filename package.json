@@ -14,6 +14,7 @@
   "files": [
     "index.js",
     "ws.js",
+    "lib/",
     "web/",
     "API.md"
   ],
