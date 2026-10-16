@@ -2387,3 +2387,17 @@ document.addEventListener('copy', e => {
     e.clipboardData.setData('text/plain', text)
     e.preventDefault()
 })
+
+// ---- Other computers: the Tabbys this one has heard on the network; tap one to open it ----
+
+$('term-host').onclick = async () => {
+    const r = await api('/api/computers').catch(() => null)
+    const others = r?.ok ? await r.json() : []
+    const anchor = $('term-host').getBoundingClientRect()
+    showMenu([
+        { label: 'Computers' },
+        { text: computer || location.host, checked: true, run () {} },
+        ...others.sort((a, b) => a.name.localeCompare(b.name)).map(c => ({ text: c.name, run: () => { location.href = c.url } })),
+        ...others.length ? [] : [{ label: r?.ok ? 'No other computers seen on this Wi-Fi.' : 'Needs a Tabby restart.' }],
+    ], anchor.left, anchor.bottom)
+}

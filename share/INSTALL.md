@@ -55,7 +55,7 @@ The result must be `.../node_modules/tabby-remote/index.js`, not `tabby-remote` 
 
 Ask the user to quit Tabby (macOS: Cmd+Q) and open it again. Tabby loads plugins only at startup.
 
-Before that, tell the user what may happen: on the first start, Windows (or the macOS firewall, when on) may ask whether Tabby can accept connections. That is the plugin's port 7681, so a phone on the same Wi-Fi can reach Tabby; only paired devices can use it. Allowing it on private networks makes phone access work; denying it keeps phone access off this network. Let the user choose.
+Before that, tell the user what may happen: on the first start, Windows (or the macOS firewall, when on) may ask whether Tabby can accept connections. That is the plugin's port 7681, so a phone on the same Wi-Fi can reach Tabby; only paired devices can use it. (It also announces itself on UDP port 41681 so the user's other computers running it can list it; nothing secret is sent, and it can be turned off in Settings > Phone access.) Allowing it on private networks makes phone access work; denying it keeps phone access off this network. Let the user choose.
 
 ## 5. Verify
 

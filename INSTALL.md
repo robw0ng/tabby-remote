@@ -97,7 +97,7 @@ Do not kill Tabby's process: a killed Tabby loses its last saved tabs.
 
 | System | First start |
 | --- | --- |
-| Windows | A Windows Firewall prompt may ask about Tabby. Allow it on **private** networks, so phones on the same Wi-Fi can connect. |
+| Windows | A Windows Firewall prompt may ask about Tabby. Allow it on **private** networks, so phones on the same Wi-Fi can connect, and so this computer's other computers find it (a small announcement on UDP port 41681; when blocked, the phone's list of computers is just empty). |
 | macOS | If the macOS firewall is on, it asks whether Tabby may accept incoming connections: **Allow**. If it was denied earlier, re-allow Tabby in System Settings > Network > Firewall > Options. |
 
 ## 5. Verify

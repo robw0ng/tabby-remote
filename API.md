@@ -26,6 +26,7 @@ Set in Tabby's **Settings > Phone access**, and saved in `tabby-remote.json` in 
 | `keepAwake`, `awakeMinutes` | Keep the PC awake while a device is attached, and this many minutes after the last one leaves (default on, 30) |
 | `fsRoots` | Folders `/api/fs` may list. Default none. Only in the file. |
 | `devices` | Paired devices (token hashes). Removed in Settings or with `DELETE /api/devices/:id`. |
+| `announce` | Show this computer to the user's other computers (default on): a UDP broadcast every 30 s on port 41681 of the Wi-Fi network, `{ app: "tabby-remote", v: 1, computerId, name, port }`. Nothing secret. Every Tabby listens for the others' (see `/api/computers`). |
 
 ## Transport
 
@@ -63,6 +64,8 @@ Every request needs `Authorization: Bearer <deviceToken>`. A WebSocket sends the
 | POST | `/api/pair` | `{ code, deviceName }` | `{ token, deviceId }` |
 | POST | `/api/login` | `{ password, deviceName }` | `{ token, deviceId }` |
 | GET | `/api/devices` | — | `[{ id, name, created, current }]` |
+| GET | `/api/computers` | — | The other computers running tabby-remote on this network, heard in the last 2 minutes: `[{ computerId, name, url }]`. `url` is the address its announcement came from, so a changed IP is followed. Signing in there needs its own code or password. |
+| POST | `/api/pairing` | — | A single-use, 2-minute pairing code for another device, made by a signed-in one: `{ code, url, expires, svg }` (`svg` is its QR) |
 | DELETE | `/api/devices/:id` | — | Revokes one device and closes its sockets (code `4001`) |
 | GET | `/api/sessions` | — | Tabs (see Session) |
 | GET | `/api/groups` | — | tabby-groups `list()`: `[{ name, color, collapsed, pinned, parent, tabs, needsYou, busy }]`; `needsYou`/`busy` count Claude tabs in the whole subtree |

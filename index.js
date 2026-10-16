@@ -33,7 +33,7 @@ function install (injector) {
 
     // Settings (Tabby's Settings > Phone access) and paired devices, outside Tabby's config, which syncs between PCs.
     // Not 7680: Windows Delivery Optimization holds that port on every PC.
-    let store = { enabled: true, name: null, port: 7681, passwordHash: null, devices: [], keepAwake: true, awakeMinutes: 30 }
+    let store = { enabled: true, name: null, port: 7681, passwordHash: null, devices: [], keepAwake: true, awakeMinutes: 30, announce: true }
     try {
         store = { ...store, ...JSON.parse(fs.readFileSync(storePath, 'utf8')) }
     } catch { }
@@ -740,6 +740,10 @@ function install (injector) {
         // A signed-in device lets another one pair (a phone adding an iPad): the same single-use, 2-minute code as
         // Tabby's QR button, with its QR drawn here. Only for a device that already has a token, so there is always
         // existing trust; the new device gets its own token, removable like any other.
+        // The other computers running tabby-remote on this network (see "Other computers"): { computerId, name, url }.
+        if (at('GET', /^\/api\/computers$/)) {
+            return json(res, 200, otherComputers())
+        }
         if (at('POST', /^\/api\/pairing$/)) {
             const p = newPairing()
             const qr = require('qrcode-generator')(0, 'M')
@@ -965,6 +969,47 @@ function install (injector) {
     }
     if (store.enabled) startServers()
 
+    // ---- Other computers: each Tabby announces itself on the local network, and hears the others ----
+    // A small UDP broadcast every 30 s on a fixed port: { app, v, computerId, name, port }. Nothing secret: signing in
+    // to another computer still needs its own code or password. Only our own format and version are accepted. Where
+    // a firewall blocks it, it fails quietly and the phone's list of computers is just empty.
+    const ANNOUNCE_PORT = 41681
+    const peers = new Map()
+    const dgram = require('dgram')
+    const announcer = dgram.createSocket({ type: 'udp4', reuseAddr: true })
+    announcer.on('error', e => console.warn('[tabby-remote] announce', e.message))
+    announcer.on('message', (buf, from) => {
+        let m
+        try {
+            m = JSON.parse(buf.toString('utf8'))
+        } catch {
+            return
+        }
+        if (m?.app !== 'tabby-remote' || m.v !== 1 || typeof m.computerId !== 'string' || m.computerId === store.computerId) return
+        if (!Number.isInteger(m.port) || m.port < 1 || m.port > 65535) return
+        // Its address is the one the message came from: an IP change is followed on the next announcement.
+        peers.set(m.computerId, { computerId: m.computerId, name: String(m.name ?? '').slice(0, 40) || from.address, url: `http://${from.address}:${m.port}/`, seen: Date.now() })
+    })
+    /** The broadcast address (from its netmask) of the network phones use, the Wi-Fi one (see phoneAddress), only:
+     *  not a virtual one (Hyper-V, WSL, VPN), whose address another computer could not reach. */
+    const broadcastAddresses = () => Object.values(os.networkInterfaces()).flat()
+        .filter(a => a.family === 'IPv4' && !a.internal && a.address === phoneAddress())
+        .map(a => a.address.split('.').map((o, i) => (Number(o) | (~Number(a.netmask.split('.')[i]) & 255)) & 255).join('.'))
+    function announce () {
+        if (!store.announce || !store.enabled || !servers.length) return
+        const msg = Buffer.from(JSON.stringify({ app: 'tabby-remote', v: 1, computerId: store.computerId, name: computerName(), port: listeningPort }))
+        for (const to of broadcastAddresses()) announcer.send(msg, ANNOUNCE_PORT, to, () => {})
+    }
+    announcer.bind(ANNOUNCE_PORT, () => {
+        try {
+            announcer.setBroadcast(true)
+        } catch { }
+        announce()
+    })
+    const announceTimer = setInterval(announce, 30000)
+    /** The other computers heard from in the last 2 minutes. */
+    const otherComputers = () => [...peers.values()].filter(p => Date.now() - p.seen < 120000).map(({ seen, ...p }) => p)
+
     // ---- Settings > Phone access ----
 
     /** Fills Tabby's settings tab, in the look of Tabby's own (form-line rows, Bootstrap controls). */
@@ -1059,6 +1104,12 @@ function install (injector) {
                 }),
                 button('Show QR', () => showQr())),
             portRow,
+            line('Show this computer to my other computers', `Lets a phone signed in to another computer on this Wi-Fi list this one (signing in here still needs its own code). ${otherComputers().length ? `Seen now: ${otherComputers().map(p => p.name).join(', ')}.` : 'No other computers seen right now.'}`,
+                toggle(store.announce, on => {
+                    store.announce = on
+                    save()
+                    announce()
+                })),
 
             h('h3', { className: 'mt-4 mb-3', textContent: 'This computer' }),
             nameRow,
@@ -1119,6 +1170,10 @@ function install (injector) {
             tabbySubs.forEach(s => s.unsubscribe())
             ;[...clients, ...eventClients].forEach(c => c.conn.close(1001))
             servers.forEach(s => s.close())
+            clearInterval(announceTimer)
+            try {
+                announcer.close()
+            } catch { }
             delete window.__tabbyRemote
         },
     }
