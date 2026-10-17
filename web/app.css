@@ -277,6 +277,9 @@ body.keyboard #keys { padding-bottom: 4px; }
 #answers button { text-align: left; padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px; background: #1e1e1e; color: inherit; font-size: 14px; line-height: 1.3; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; touch-action: manipulation; }
 #answers button:active { background: #333; }
 #answers b { color: var(--accent); margin-right: 6px; }
+/* Hide (top right of the options) folds them into a small Options chip in the corner, which brings them back. */
+#answers .answers-hide { align-self: flex-end; padding: 4px 12px; font-size: 13px; color: var(--dim); }
+#answers > .answers-show { position: absolute; right: 8px; bottom: 8px; padding: 6px 12px; font-size: 13px; background: #1e1e1e; box-shadow: 0 2px 8px rgba(0,0,0,.5); }
 
 /* Hover only with a mouse: on touch screens a touch (even one that scrolls) leaves :hover stuck on. */
 @media (hover: hover) and (pointer: fine) {
