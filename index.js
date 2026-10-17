@@ -8,7 +8,7 @@ const VERSION = require('./package.json').version
 
 // Each part adds its functions to the shared context and calls the others through it, so their order only matters
 // for what a part does as it starts.
-const PARTS = ['model', 'presence', 'power', 'size', 'attach', 'devices', 'pairing', 'sessions', 'events', 'files', 'routes', 'server', 'discovery', 'settings']
+const PARTS = ['model', 'presence', 'power', 'size', 'attach', 'devices', 'tailscale', 'pairing', 'sessions', 'events', 'files', 'routes', 'server', 'discovery', 'settings']
 
 function install (injector) {
     // Reloading in place (new files, Tabby kept running): the old instance lets go first, and the new server starts

@@ -65,7 +65,7 @@ To load the plugin from a fresh path instead, clear its files from `require.cach
 
 ## Away from home
 
-Install [Tailscale](https://tailscale.com) on the phone and the computer, and turn on MagicDNS. Then open `http://<computer>.<tailnet>.ts.net:7681` (the computer's Tailscale name) and sign in with the password. Use that address at home too, with Tailscale left on: the phone keeps one sign-in and one Home Screen icon for it everywhere. A new network or IP is picked up within 30 seconds.
+Install [Tailscale](https://tailscale.com) on the phone and the computer, and turn on MagicDNS. Then click the QR button in Tabby, switch it to **Tailscale**, and scan: the code links to the computer's Tailscale name (`http://<computer>.<tailnet>.ts.net:7681`, from the Tailscale CLI, or its `100.x` address without the CLI). Use that link at home too, with Tailscale left on: the phone keeps one sign-in and one Home Screen icon for it everywhere. A new network or IP is picked up within 30 seconds.
 
 ## Works with tabby-groups
 
