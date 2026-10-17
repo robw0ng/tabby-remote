@@ -74,6 +74,8 @@ body.keyboard #keys { padding-bottom: 4px; }
 #keys [data-key="up"], #keys [data-key="down"], #keys [data-key="left"], #keys [data-key="right"] { font-size: 16px; }
 /* Hold keys: a darker cap and dimmer text until switched on. */
 #keys .mod { background: #151515; color: #bbb; }
+/* The header's ⌨: dimmed while the key bar is put away. */
+#keys-btn[aria-pressed="false"] { opacity: .45; }
 #keys button[aria-pressed="true"] { background: var(--accent); color: #000; }
 
 /* ---- Sidebar, as tabby-groups draws it ---- */

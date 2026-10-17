@@ -32,7 +32,19 @@ function keySeq (k) {
 
 // No page zoom: it would fight the keyboard-fitted layout. Safari ignores user-scalable=no, but not these.
 for (const type of ['gesturestart', 'gesturechange']) document.addEventListener(type, e => e.preventDefault())
-$('keys').hidden = !touch.matches
+// The ⌨ in the header puts the key bar away and back, remembered on this device.
+function showKeys (on) {
+    $('keys').hidden = !touch.matches || !on
+    $('keys-btn').ariaPressed = String(on)
+}
+showKeys(saved('keys') ?? true)
+$('keys-btn').hidden = !touch.matches
+$('keys-btn').addEventListener('pointerdown', e => e.preventDefault()) // keep the phone keyboard as it is
+$('keys-btn').onclick = () => {
+    const on = $('keys').hidden
+    showKeys(on)
+    remember('keys', on)
+}
 $('keys').addEventListener('pointerdown', e => e.preventDefault()) // keep the phone keyboard open
 $('keys').addEventListener('click', e => {
     const k = e.target.closest('button')?.dataset.key

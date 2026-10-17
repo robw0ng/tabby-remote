@@ -29,9 +29,11 @@ function setPredicting (on) {
 
 /** Where typing goes after a tap on the terminal: the predictions box, or the terminal itself. */
 function typeHere (t) {
-    if (!predicting) return t.focus()
-    resetPredict()
-    predictBox.focus()
+    const box = predicting ? predictBox : t.textarea
+    if (predicting) resetPredict()
+    // iOS can put its keyboard away while the box keeps focus; focusing it again then shows nothing. Blur first.
+    if (document.activeElement === box) box.blur()
+    box.focus({ preventScroll: true })
 }
 
 predictBox.addEventListener('beforeinput', e => {

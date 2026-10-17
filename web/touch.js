@@ -118,6 +118,8 @@ function touchScroll (box, t, fitSize) {
         const visible = row >= 0 && row < t.rows && middle >= shown.top && middle <= shown.bottom
         if (!visible) return typeHere(t)
         if (Math.abs(e.clientY - middle) > reach) {
+            // With the keyboard away, any tap brings it back.
+            if (!document.body.classList.contains('keyboard')) return typeHere(t)
             // Waits a moment: if a second tap follows, it is a double tap (select), and the keyboard stays.
             clearTimeout(pendingBlur)
             pendingBlur = setTimeout(() => {
