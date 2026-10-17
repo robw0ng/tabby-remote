@@ -63,6 +63,10 @@ window.__tabbyRemote.reload()
 
 To load the plugin from a fresh path instead, clear its files from `require.cache` and call `require('<plugin folder>/index.js').install(injector)`; `install` disposes the running instance first. `window.__tabbyRemote.dispose()` alone stops it and resolves once the port is free.
 
+## Away from home
+
+Install [Tailscale](https://tailscale.com) on the phone and the computer, and turn on MagicDNS. Then open `http://<computer>.<tailnet>.ts.net:7681` (the computer's Tailscale name) and sign in with the password. Use that address at home too, with Tailscale left on: the phone keeps one sign-in and one Home Screen icon for it everywhere. A new network or IP is picked up within 30 seconds.
+
 ## Works with tabby-groups
 
 With [tabby-groups](https://github.com/robw0ng/tabby-groups) installed, the phone sidebar shows the same groups, colours and pins, and changes sync both ways. Without it, the sidebar lists plain tabs.

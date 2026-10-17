@@ -34,9 +34,9 @@ Set in Tabby's **Settings > Phone access**, and saved in `tabby-remote.json` in 
 | --- | --- |
 | Server | HTTP + WebSocket on one port, inside Tabby's window process |
 | Port | `7681` (setting). Not `7680`: Windows Delivery Optimization holds it on every PC. |
-| Listen | LAN addresses only; never `0.0.0.0` on a public interface |
-| Off-LAN (later) | Through a private network (Tailscale) or a tunnel; the API does not change |
-| TLS | Not on the LAN in v1; required before off-LAN |
+| Listen | Private (RFC 1918) and Tailscale (`100.64.0.0/10`) addresses only; never `0.0.0.0`. Checked every 30 s, so a new network or IP is picked up without a restart. |
+| Away from home | Through Tailscale: `http://<computer>.<tailnet>.ts.net:<port>` or its `100.x` address; the API does not change |
+| TLS | None: the LAN, or Tailscale, which encrypts the traffic itself |
 | Format | JSON for REST and control messages; raw UTF-8 for terminal data |
 
 ## Auth
@@ -53,7 +53,7 @@ Every request needs `Authorization: Bearer <deviceToken>`. A WebSocket sends the
 | Device tokens | Random 256-bit, stored hashed, one per device, revocable in Tabby |
 | Pairing code | Single use, 2-minute life |
 | Failed logins | 5 per minute per address, then a 1-minute lockout |
-| Host check | `Host` must be one of the server's own addresses (stops DNS rebinding) |
+| Host check | `Host` must be one of the server's own addresses, or this computer's Tailscale name `<hostname>.<tailnet>.ts.net`, with its port (stops DNS rebinding) |
 | Origin check | `Origin`, when sent, must be this server, so only its own page can call it from a browser. Native apps send none. |
 
 ## REST
