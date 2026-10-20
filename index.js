@@ -8,7 +8,7 @@ const VERSION = require('./package.json').version
 
 // Each part adds its functions to the shared context and calls the others through it, so their order only matters
 // for what a part does as it starts.
-const PARTS = ['model', 'presence', 'power', 'size', 'attach', 'devices', 'tailscale', 'pairing', 'sessions', 'events', 'files', 'routes', 'server', 'discovery', 'settings']
+const PARTS = ['model', 'presence', 'power', 'size', 'attach', 'devices', 'tailscale', 'pairing', 'sessions', 'events', 'files', 'move', 'routes', 'server', 'discovery', 'settings']
 
 function install (injector) {
     // Reloading in place (new files, Tabby kept running): the old instance lets go first, and the new server starts
@@ -54,6 +54,18 @@ function install (injector) {
         awake: ctx.awake,
         screenOn: ctx.screenOn,
         renderSettings: ctx.inZone(ctx.renderSettings),
+        /** A Claude tab's right-click menu: Send to computer ▸ one of the others seen on the network. */
+        tabMenu (tab) {
+            if (!ctx.claudeSessionOf(tab) || !ctx.canMove()) return []
+            const targets = ctx.moveTargets()
+            const send = id => ctx.inZone(() => ctx.sendWithNotice(tab, id))
+            return [{
+                label: 'Send to computer',
+                submenu: targets.length
+                    ? targets.map(c => c.linked ? { label: c.name, click: send(c.computerId) } : { label: `${c.name} (link it in Settings > Phone access)`, enabled: false })
+                    : [{ label: 'No other computers seen on this network', enabled: false }],
+            }]
+        },
         /** Loads this plugin's files again from disk and swaps the running instance for the new one. */
         reload () {
             Object.keys(require.cache).filter(f => f.startsWith(__dirname + path.sep)).forEach(f => delete require.cache[f])
@@ -88,6 +100,13 @@ class RemoteButtonProvider extends core.ToolbarButtonProvider {
     }
 }
 
+// Built by install(), so a hot reload brings new items.
+class RemoteTabMenuProvider extends core.TabContextMenuItemProvider {
+    async getItems (tab) {
+        return window.__tabbyRemote?.tabMenu(tab) ?? []
+    }
+}
+
 // Settings > Phone access. Tabby has no template compiler at run time, so the component is declared by hand,
 // with an empty template; install() fills it with plain DOM, and a hot reload brings the new page with it.
 class RemoteSettingsComponent {
@@ -119,6 +138,7 @@ class RemoteSettingsTabProvider extends settings.SettingsTabProvider {
 module.exports = NgModule({
     providers: [
         { provide: core.ToolbarButtonProvider, useClass: RemoteButtonProvider, multi: true },
+        { provide: core.TabContextMenuItemProvider, useClass: RemoteTabMenuProvider, multi: true },
         { provide: settings.SettingsTabProvider, useClass: RemoteSettingsTabProvider, multi: true },
     ],
 })(TabbyRemoteModule)

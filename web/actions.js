@@ -102,8 +102,28 @@ function tabMenu (id, x, y) {
             { text: `New subgroup of ${inner}`, run: () => tabApi(id, { group: newGroupName(), parent: inner }) },
             { text: 'Remove from group', run: () => tabApi(id, { group: null }) },
         ] : []),
+        ...(s.kind === 'claude' ? [{ text: 'Send to computer…', keepOpen: true, run: () => sendMenu(s, x, y) }] : []),
         { sep: true },
         { text: 'Close tab', danger: true, run: () => closeTab(id) },
+    ], x, y)
+}
+
+/** Send to computer: the Claude chat in this tab moves to another of the user's computers (linked in Tabby's
+ *  Settings), which opens it in a new tab. The computer running the tab does the sending. */
+async function sendMenu (s, x, y) {
+    const r = await api('/api/computers').catch(() => null)
+    const others = r?.ok ? await r.json() : []
+    const send = async c => {
+        setStatus(`Sending to ${c.name}…`)
+        const res = await api(`/api/sessions/${s.id}/send`, { method: 'POST', body: JSON.stringify({ computerId: c.computerId }) }).catch(() => null)
+        const out = await res?.json().catch(() => null)
+        setStatus(null)
+        flash(res?.ok ? `Opened on ${c.name}` : out?.error ?? 'Not sent')
+    }
+    showMenu([
+        { label: `Send "${s.title}" to` },
+        ...others.map(c => c.linked ? { text: c.name, run: () => send(c) } : { label: `${c.name}: link it in Tabby's Settings first` }),
+        ...others.length ? [] : [{ label: 'No other computers seen on this Wi-Fi.' }],
     ], x, y)
 }
 

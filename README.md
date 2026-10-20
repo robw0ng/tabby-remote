@@ -67,6 +67,12 @@ To load the plugin from a fresh path instead, clear its files from `require.cach
 
 Install [Tailscale](https://tailscale.com) on the phone and the computer, and turn on MagicDNS. Then click the QR button in Tabby, switch it to **Tailscale**, and scan: the code links to the computer's Tailscale name (`http://<computer>.<tailnet>.ts.net:7681`, from the Tailscale CLI, or its `100.x` address without the CLI). Use that link at home too, with Tailscale left on: the phone keeps one sign-in and one Home Screen icon for it everywhere. A new network or IP is picked up within 30 seconds.
 
+## Send to computer
+
+Moves a Claude chat to another of your computers on the same network, which opens it in a new tab and resumes it: right-click a Claude tab › **Send to computer**, or long-press it on the phone. Link each computer once in Settings > Phone access › Send to computer, with its password or the code from its QR button; it then shows this one among its paired devices, and removing it there unlinks it. Compact a big chat and push its branch first: the other computer opens it in its own clone of the repo.
+
+Needs the [claude-sessions](https://github.com/robw0ng/claude-sessions) plugin and Node.js on both computers; without them the menu item stays hidden.
+
 ## Works with tabby-groups
 
 With [tabby-groups](https://github.com/robw0ng/tabby-groups) installed, the phone sidebar shows the same groups, colours and pins, and changes sync both ways. Without it, the sidebar lists plain tabs.

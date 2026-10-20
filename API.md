@@ -25,7 +25,8 @@ Set in Tabby's **Settings > Phone access**, and saved in `tabby-remote.json` in 
 | `passwordHash` | The login password as a salted scrypt hash. Login is off while it is empty; QR pairing works without it. |
 | `keepAwake`, `awakeMinutes` | Keep the PC awake while a device is attached, and this many minutes after the last one leaves (default on, 30) |
 | `fsRoots` | Folders `/api/fs` may list. Default none. Only in the file. |
-| `devices` | Paired devices (token hashes). Removed in Settings or with `DELETE /api/devices/:id`. |
+| `devices` | Paired devices (token hashes). Removed in Settings or with `DELETE /api/devices/:id`. A linked computer has `computer: true`. |
+| `links` | The computers this one sends Claude chats to: `{ [computerId]: { token, deviceId, name } }`, its own device token on each. Unlink in Settings. |
 | `announce` | Show this computer to the user's other computers (default on): a UDP broadcast every 30 s on port 41681 of the Wi-Fi network, `{ app: "tabby-remote", v: 1, computerId, name, port }`. Nothing secret. Every Tabby listens for the others' (see `/api/computers`). |
 
 ## Transport
@@ -61,10 +62,10 @@ Every request needs `Authorization: Bearer <deviceToken>`. A WebSocket sends the
 | Method | Path | Body / query | Returns |
 | --- | --- | --- | --- |
 | GET | `/api/info` | — | `{ tabby, plugin, host, id, name, port, password, groups }`: versions, host name, this computer's permanent `id`, display `name` and listening `port` (so a client that knows several computers can tell them apart, also at a new address), whether password login is on, whether tabby-groups is installed. No auth. |
-| POST | `/api/pair` | `{ code, deviceName }` | `{ token, deviceId }` |
-| POST | `/api/login` | `{ password, deviceName }` | `{ token, deviceId }` |
+| POST | `/api/pair` | `{ code, deviceName, computer? }` | `{ token, deviceId }`. `computer: true`: another of the user's computers linking (Send to computer). |
+| POST | `/api/login` | `{ password, deviceName, computer? }` | `{ token, deviceId }`; `computer` as for `/api/pair` |
 | GET | `/api/devices` | — | `[{ id, name, created, current }]` |
-| GET | `/api/computers` | — | The other computers running tabby-remote on this network, heard in the last 2 minutes: `[{ computerId, name, url }]`. `url` is the address its announcement came from, so a changed IP is followed. Signing in there needs its own code or password. |
+| GET | `/api/computers` | — | The other computers running tabby-remote on this network, heard in the last 2 minutes: `[{ computerId, name, url, linked }]`. `url` is the address its announcement came from, so a changed IP is followed. Signing in there needs its own code or password. `linked`: this computer can send Claude chats there. |
 | POST | `/api/pairing` | — | A single-use, 2-minute pairing code for another device, made by a signed-in one: `{ code, url, expires, svg }` (`svg` is its QR) |
 | DELETE | `/api/devices/:id` | — | Revokes one device and closes its sockets (code `4001`) |
 | GET | `/api/sessions` | — | Tabs (see Session) |
@@ -81,6 +82,8 @@ Every request needs `Authorization: Bearer <deviceToken>`. A WebSocket sends the
 | PATCH | `/api/sessions/:id` | `{ title?, group?, parent?, pinned?, focus? }` | The updated Session. `group` is a group name (created, under `parent`, if new), or `null` to ungroup. An empty `title` clears the custom title. `pinned` pins inside the group, or with Tabby's pin when loose. |
 | DELETE | `/api/sessions/:id` | — | Closes the tab without asking. `409` when it is pinned. |
 | GET | `/api/profiles` | — | `[{ id, name, type, icon }]`; `icon` may be SVG markup |
+| POST | `/api/sessions/:id/send` | `{ computerId }` | Send to computer: this computer exports the tab's Claude chat (claude-sessions) and sends it to that linked computer, which opens it in a new tab. `{ ok, name, cwd, warnings }`, or `409 { error }`. |
+| POST | `/api/import` | A claude-sessions export zip (max 200 MB) | From a linked computer only (`403` otherwise). The zip is checked (only `meta.json`, `<id>.jsonl`, `<id>/…`; no absolute or `..` paths), imported by claude-sessions, and opened in a new tab running `claude --resume <id>` in the folder the import chose. `{ ok, cwd, warnings }`; `409` when there is no clone or it was imported before; `501` without claude-sessions. |
 | GET | `/api/fs` | `?path=` | Folder entries `{ name, type: 'dir'|'file', size, mtime }`. No `path` lists the roots. `403` outside them. |
 
 Errors are `{ "error": "<text>" }` with `400`, `401`, `403`, `404`, `409`, `429` or `500`.
