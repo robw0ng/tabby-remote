@@ -25,7 +25,7 @@ Set in Tabby's **Settings > Phone access**, and saved in `tabby-remote.json` in 
 | `passwordHash` | The login password as a salted scrypt hash. Login is off while it is empty; QR pairing works without it. |
 | `keepAwake`, `awakeMinutes` | Keep the PC awake while a device is attached, and this many minutes after the last one leaves (default on, 30) |
 | `devices` | Paired devices (token hashes). Removed in Settings or with `DELETE /api/devices/:id`. A linked computer has `computer: true`. |
-| `links` | The computers this one is linked to (Send to computer, files): `{ [computerId]: { token, deviceId, name, tailscale?, port? } }`, its own device token on each. Unlink in Settings. |
+| `links` | The computers this one is linked to (Send to computer, files): `{ [computerId]: { token, deviceId, name, sign?, box?, tailscale?, port? } }` (`sign`, `box`: the other computer's pinned public keys), its own device token on each. Unlink in Settings. |
 | `sharedFolders` | Folders linked computers may use (see Files between computers). Default none. |
 | `announce` | Show this computer to the user's other computers (default on): a UDP broadcast every 30 s on port 41681 of the Wi-Fi network, `{ app: "tabby-remote", v: 1, computerId, name, port }`. Nothing secret. Every Tabby listens for the others' (see `/api/computers`). |
 
@@ -57,6 +57,17 @@ Every request needs `Authorization: Bearer <deviceToken>`. A WebSocket sends the
 | Host check | `Host` must be one of the server's own addresses, or this computer's Tailscale name `<hostname>.<tailnet>.ts.net`, with its port (stops DNS rebinding) |
 | Origin check | `Origin`, when sent, must be this server, so only its own page can call it from a browser. Native apps send none. |
 
+### Linking computers
+
+Anything on the network can announce itself as another computer, so linking never sends the password or code to an address it has not checked:
+
+| Step | What happens |
+| --- | --- |
+| 1 | `POST /api/identity` there: it must sign the nonce with the address it saw the question come from, so a host passing the question on to the real computer fails. |
+| 2 | The user confirms the fingerprint shown matches the other computer's own (its Settings, or under its QR). A different one means something else is answering: Cancel, and nothing is sent. |
+| 3 | The password or code goes to `/api/login` or `/api/pair` as `{ sealed: { epk, iv, ct, tag } }`: X25519 with a fresh key, HKDF-SHA256 (salt: that key, info `tabby-remote link v1`), AES-256-GCM, to the confirmed `box` key. The token comes back sealed with the same key. Phones still send theirs as they are. |
+| 4 | The link pins the other's `sign` and `box` keys; later checks (before a token is sent, see Files between computers) are step 1 against the pinned keys. A link saved before identities proves itself with `/api/prove` once, and pins them then. |
+
 ## REST
 
 | Method | Path | Body / query | Returns |
@@ -64,6 +75,7 @@ Every request needs `Authorization: Bearer <deviceToken>`. A WebSocket sends the
 | GET | `/api/info` | — | `{ tabby, plugin, host, id, name, port, password, groups, side, tailscale }`: versions, host name, this computer's permanent `id`, display `name` and listening `port` (so a client that knows several computers can tell them apart, also at a new address), whether password login is on, whether tabby-groups is installed, and `side`, `left` or `right`: where Tabby's tab bar is (the page puts its sidebar there; the events socket sends `{ type: "side", side }` when it changes), and `tailscale`: its Tailscale name or address, or `null`. No auth. |
 | POST | `/api/pair` | `{ code, deviceName, computer? }` | `{ token, deviceId }`. `computer: true`: another of the user's computers linking (Send to computer). |
 | POST | `/api/login` | `{ password, deviceName, computer? }` | `{ token, deviceId }`; `computer` as for `/api/pair` |
+| POST | `/api/identity` | `{ nonce }` (32–128 characters) | `{ sign, box, sig }`: this computer's Ed25519 and X25519 public keys (base64 DER), and an Ed25519 signature over `tabby-remote identity v1\n<nonce>\n<asker's address as seen here>\n<box>`. No auth. Its fingerprint (Settings, and under the QR) is 12 characters of SHA-256 over `<sign>.<box>`. |
 | GET | `/api/devices` | — | `[{ id, name, created, current }]` |
 | GET | `/api/computers` | — | The other computers running tabby-remote on this network, heard in the last 2 minutes: `[{ computerId, name, url, linked }]`. `url` is the address its announcement came from, so a changed IP is followed. Signing in there needs its own code or password. `linked`: this computer can send Claude chats there. |
 | POST | `/api/pairing` | — | A single-use, 2-minute pairing code for another device, made by a signed-in one: `{ code, url, expires, svg }` (`svg` is its QR) |

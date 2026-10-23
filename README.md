@@ -13,7 +13,7 @@ It is also an HTTP + WebSocket API, so you can build your own client. See [API.m
 | Terminal for touch | Fits the screen, native scrolling, pinch to zoom, tap to move the cursor, double and triple tap to select |
 | Key bar | Esc, Tab, Shift, Ctrl, Alt, ^C, arrows, Home, End, PgUp, PgDn, Copy, Paste |
 | Claude Code | Its questions show as buttons; a tab that needs you shows in the sidebar |
-| Files | Upload photos and files to the PC; paste from the PC's clipboard |
+| Files | Upload photos and files to the PC; paste from the PC's clipboard; 📁 browses the PC's Shared folders |
 | Search | Search the terminal, as in Tabby (Ctrl+Shift+F) |
 | Several devices | Each device has a colour; Tabby shows who is watching or typing in which tab |
 | Keeps the PC awake | While a device has a tab open (can be turned off) |
@@ -75,7 +75,7 @@ Needs the [claude-sessions](https://github.com/robw0ng/claude-sessions) plugin a
 
 ## Files between computers
 
-Linked computers also use each other's **Shared folders** (Settings › Phone access › Send to computer › Shared folders): browse, copy, move and delete files there, for example from the Files tab of [tabby-files](https://github.com/robw0ng/tabby-files). Nothing is shared until you add a folder; only linked computers get in (not phones); nothing outside those folders is reachable, through `..` or links; deleted files go to the Recycle Bin / Trash. Big files stream with no size limit. Both computers need this version: each checks the other is really the computer it linked to before using it.
+Linked computers also use each other's **Shared folders** (Settings › Phone access › Send to computer › Shared folders): browse, copy, move and delete files there, for example from the Files tab of [tabby-files](https://github.com/robw0ng/tabby-files). Nothing is shared until you add a folder. Phones and browsers get the 📁 button on the page: browse, preview, download, upload new files, and paste a path into the terminal; moving, overwriting and deleting stay with linked computers. Nothing outside those folders is reachable, through `..` or links; deleted files go to the Recycle Bin / Trash. Big files stream with no size limit. Both computers need this version: each checks the other is really the computer it linked to before using it. When linking, check the fingerprint Tabby shows matches the one in the other computer's Settings › Phone access (or under its QR): if it doesn't, something else on the network is answering, and nothing is sent.
 
 ## Works with tabby-groups
 
