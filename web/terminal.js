@@ -177,15 +177,24 @@ function open (sessionId, paneId) {
             send({ type: 'resize', cols: d.cols, rows: d.rows })
         }
     }
+    // While Claude asks a question, keys reach it one at a time, a moment apart: a word arriving at once (a prediction,
+    // autocorrect, dictation), or keys bunched together, would cancel the question ("User declined").
+    let paced = Promise.resolve()
+    const input = data => {
+        if (!claudeAsking) return void (paced = paced.then(() => send({ type: 'input', data })))
+        // Split all but an escape sequence (an arrow, a bracketed paste), which must arrive whole.
+        const parts = data.length > 1 && data[0] !== '\x1b' ? [...data] : [data]
+        for (const part of parts) paced = paced.then(() => send({ type: 'input', data: part })).then(() => new Promise(resolve => setTimeout(resolve, 40)))
+    }
     // Typing over a selection on the line being typed replaces it (⌫ deletes it), as in a text field.
     trackSelection(t)
     t.onData(data => {
         const sel = takeSelection(t)
         if (sel) replaceSelection(t, applyMods(data), sel)
-        else send({ type: 'input', data: applyMods(data) })
+        else input(applyMods(data))
     })
     new ResizeObserver(() => ready && fitSize()).observe(box)
-    sendKey = data => send({ type: 'input', data })
+    sendKey = input
     appCursor = () => t.modes.applicationCursorKeysMode
     touchScroll(box, t, fitSize)
     if (touch.matches) keepBackspaceRepeating(t)
