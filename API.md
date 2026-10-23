@@ -206,7 +206,8 @@ A shell in a folder: `POST /api/sessions` with `cwd`.
 | Method | Path | Body / query | Returns |
 | --- | --- | --- | --- |
 | GET | `/api/files/roots` | — | `[{ name, path }]`: the shared folders, each named after its folder and unique here (`Docs`, `Docs (2)`) |
-| GET | `/api/files/list` | `?path=` | `[{ name, type: 'dir'|'file', size, mtime }]`: links followed; `mtime` in ms since the epoch; `size` 0 for folders |
+| GET | `/api/files/list` | `?path=`; `&links=1` adds a `url` (a 30-minute `/api/files/dl` link) to each file | `[{ name, type: 'dir'|'file', size, mtime }]`: links followed; `mtime` in ms since the epoch; `size` 0 for folders |
+| GET | `/api/files/dl` | `?path&dev&exp&sig` (a link from `list`) | The file as an attachment, without a sign-in header: for dragging a file out of the page (Chrome/Edge `DownloadURL`). Served only when `sig` = HMAC-SHA256(that device's token hash, `download\n<path>\n<exp>`), `exp` is at most 30 minutes ahead, and the device is still paired; `403 bad-link` otherwise. Same path checks and phone limits as `read`. |
 | GET | `/api/files/stat` | `?path=` | `{ name, type, size, mtime }` |
 | GET | `/api/files/read` | `?path=`; optional `Range: bytes=N-` or `N-M` | The file, streamed (`Content-Length`; `206` for a range) |
 | PUT | `/api/files/write` | `?path=&overwrite=1?`; the file as the body | `{ name, type, size, mtime }`. Written to `.<name>.tabby-part-<id>` beside it and renamed into place at the end; a broken or failed upload leaves nothing. `409 exists` without `overwrite=1`; `404` when its folder does not exist. |

@@ -313,6 +313,7 @@ body.keyboard #keys { padding-bottom: 4px; }
 .file-view img { max-width: 100%; height: auto; border-radius: 6px; background: #111; }
 .file-view pre { margin: 0; padding: 8px; border-radius: 6px; background: #000; color: var(--fg); font: 12px Menlo, Consolas, monospace; white-space: pre-wrap; word-break: break-all; }
 #files-btn[aria-pressed="true"] { color: var(--accent); }
+#files.dropping { outline: 2px dashed var(--accent); outline-offset: -6px; }
 
 /* Back from a subagent's view: top right over the terminal (Claude's agent list is at the bottom left). */
 #back-chip { position: relative; height: 0; z-index: 30; }

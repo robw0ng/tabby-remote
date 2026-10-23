@@ -37,7 +37,8 @@ async function showFolder (dir) {
     const list = $('files-list')
     $('files-preview').hidden = true
     list.hidden = false
-    const r = await filesApi(dir ? 'list' : 'roots', dir ? { path: dir } : {}).catch(() => null)
+    // With a mouse, each file comes with a download link to drag out of the page (see the rows below).
+    const r = await filesApi(dir ? 'list' : 'roots', dir ? { path: dir, ...touch.matches ? {} : { links: '1' } } : {}).catch(() => null)
     const body = r && await r.json().catch(() => null)
     if (!r?.ok) {
         // A folder that went away (or stopped being shared): back to the top.
@@ -61,7 +62,18 @@ async function showFolder (dir) {
         : body.map(r => ({ name: r.name, type: 'dir', path: r.path, size: 0, mtime: null }))
     list.replaceChildren(...entries.length ? entries.map(e => {
         const p = e.path ?? joinPath(dir, e.name)
-        return el('button', { className: 'file-row', onclick: () => e.type === 'dir' ? showFolder(p) : showFile(p, e) },
+        // Dragged onto the desktop or into Explorer/Finder, a file downloads there (Chrome and Edge: DownloadURL;
+        // elsewhere the drag does nothing, and Download in its preview does it).
+        return el('button', {
+            className: 'file-row',
+            draggable: !!e.url,
+            ondragstart: ev => {
+                if (!e.url) return ev.preventDefault()
+                ev.dataTransfer.effectAllowed = 'copy'
+                ev.dataTransfer.setData('DownloadURL', `application/octet-stream:${e.name.replace(/:/g, '_')}:${location.origin}${e.url}`)
+            },
+            onclick: () => e.type === 'dir' ? showFolder(p) : showFile(p, e),
+        },
             el('span', { className: 'file-icon', textContent: e.type === 'dir' ? '📁' : IMAGE.test(e.name) ? '🖼️' : '📄', ariaHidden: 'true' }),
             el('span', { className: 'file-name', textContent: e.name }),
             el('span', { className: 'file-meta', textContent: e.type === 'dir' ? '' : [sizeText(e.size), e.mtime && new Date(e.mtime).toLocaleDateString()].filter(Boolean).join(' · ') }))
@@ -147,10 +159,14 @@ $('files-up').onclick = () => {
 
 // Upload into the open folder: a file that is already there is kept, and the new one gets a free name ("a (2).txt").
 $('files-upload').onclick = () => files.at && $('files-pick').click()
-$('files-pick').addEventListener('change', async () => {
+$('files-pick').addEventListener('change', () => {
     const picked = [...$('files-pick').files]
     $('files-pick').value = ''
-    const dir = files.at
+    uploadInto(files.at, picked)
+})
+
+async function uploadInto (dir, picked) {
+    if (!dir || !picked.length) return
     let failed = 0
     for (const f of picked) {
         const dot = f.name.lastIndexOf('.') > 0 ? f.name.lastIndexOf('.') : f.name.length
@@ -168,7 +184,30 @@ $('files-pick').addEventListener('change', async () => {
     setStatus(null)
     if (failed) flash(failed === picked.length ? 'Upload failed' : 'Some files failed')
     if (files.at === dir && !$('files').hidden) showFolder(dir)
-})
+}
+
+// An open folder is listed again every 20 minutes, so its files' download links (30 minutes) never run out mid-drag.
+setInterval(() => !$('files').hidden && files.at && $('files-preview').hidden && !touch.matches && showFolder(files.at), 20 * 60000)
+
+// Files dropped on the panel (from the computer the browser runs on) upload into the open folder, as with ⤒.
+{
+    const panel = $('files')
+    const hasFiles = e => [...(e.dataTransfer?.types ?? [])].includes('Files')
+    panel.addEventListener('dragover', e => {
+        if (!hasFiles(e)) return
+        e.preventDefault()
+        e.dataTransfer.dropEffect = files.at ? 'copy' : 'none'
+        panel.classList.toggle('dropping', !!files.at)
+    })
+    panel.addEventListener('dragleave', e => !panel.contains(e.relatedTarget) && panel.classList.remove('dropping'))
+    panel.addEventListener('drop', e => {
+        panel.classList.remove('dropping')
+        if (!hasFiles(e)) return
+        e.preventDefault()
+        if (!files.at) return flash('Open a folder first')
+        uploadInto(files.at, filesIn(e.dataTransfer))
+    })
+}
 
 /** PUT /api/files/write with upload progress (fetch has none); resolves with the status (0: no connection). */
 const put = (p, file, progress) => new Promise(resolve => {
