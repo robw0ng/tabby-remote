@@ -73,6 +73,10 @@ Moves a Claude chat to another of your computers on the same network, which open
 
 Needs the [claude-sessions](https://github.com/robw0ng/claude-sessions) plugin and Node.js on both computers; without them the menu item stays hidden.
 
+## Files between computers
+
+Linked computers also use each other's **Shared folders** (Settings › Phone access › Send to computer › Shared folders): browse, copy, move and delete files there, for example from the Files tab of [tabby-files](https://github.com/robw0ng/tabby-files). Nothing is shared until you add a folder; only linked computers get in (not phones); nothing outside those folders is reachable, through `..` or links; deleted files go to the Recycle Bin / Trash. Big files stream with no size limit. Both computers need this version: each checks the other is really the computer it linked to before using it.
+
 ## Works with tabby-groups
 
 With [tabby-groups](https://github.com/robw0ng/tabby-groups) installed, the phone sidebar shows the same groups, colours and pins, and changes sync both ways. Without it, the sidebar lists plain tabs.
