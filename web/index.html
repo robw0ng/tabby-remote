@@ -29,6 +29,8 @@
       <!-- Upload a photo or file: it lands on the PC and its path is pasted at the cursor. -->
       <!-- Search this tab's text, as Tabby's own search (Ctrl+Shift+F). -->
       <button id="find-btn" class="icon-btn" aria-label="Search" title="Search (Ctrl+Shift+F)"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></button>
+      <!-- The Shared folders of this computer: browse, preview, download, upload, paste a path. -->
+      <button id="files-btn" class="icon-btn" aria-label="Files" aria-pressed="false" title="Shared folders"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></button>
       <button id="attach" class="icon-btn" aria-label="Upload a file" title="Upload a photo or file"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg></button>
       <button id="keys-btn" class="icon-btn" aria-label="Key bar" title="Show or hide the key bar" hidden><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="20" height="14" x="2" y="5" rx="2"/><path d="M6 9h.01M10 9h.01M14 9h.01M18 9h.01M8 13h.01M12 13h.01M16 13h.01M7 16h10"/></svg></button>
       <button id="show-list" class="icon-btn" aria-label="Show tabs">☰<span id="list-badge" hidden></span></button>
@@ -83,6 +85,19 @@
     </div>
     <nav id="tree"></nav>
   </aside>
+  <!-- 📁: this computer's Shared folders, on the sidebar's side (the whole screen on a phone). -->
+  <section id="files" aria-label="Shared folders" hidden>
+    <div id="files-head">
+      <button id="files-up" class="icon-btn" aria-label="Up" title="Up" hidden>‹</button>
+      <span id="files-title">Shared folders</span>
+      <button id="files-paste" class="icon-btn" aria-label="Paste this folder's path" title="Paste this folder's path in the terminal" hidden>⌨</button>
+      <button id="files-upload" class="icon-btn" aria-label="Upload here" title="Upload files into this folder" hidden>⤒</button>
+      <button id="files-close" class="icon-btn" aria-label="Close">✕</button>
+    </div>
+    <div id="files-list"></div>
+    <div id="files-preview" hidden></div>
+    <input id="files-pick" type="file" multiple hidden>
+  </section>
   <!-- "<tab> needs you": a Claude finished on a tab this page is not showing. Tap to open it. -->
   <button id="toast" hidden></button>
   <!-- Group and tab menu: an action sheet on phones, a popover at the pointer with a mouse. -->
@@ -143,6 +158,7 @@
 <script src="predict.js"></script>
 <script src="clipboard.js"></script>
 <script src="upload.js"></script>
+<script src="files.js"></script>
 <script src="claude.js"></script>
 <script src="find.js"></script>
 <script src="main.js"></script>

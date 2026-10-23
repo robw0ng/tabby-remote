@@ -24,7 +24,6 @@ Set in Tabby's **Settings > Phone access**, and saved in `tabby-remote.json` in 
 | `port` | Default `7681`. Applies after a Tabby restart. When taken (another Tabby on the same computer), the next free of the 10 after it is used and saved here. |
 | `passwordHash` | The login password as a salted scrypt hash. Login is off while it is empty; QR pairing works without it. |
 | `keepAwake`, `awakeMinutes` | Keep the PC awake while a device is attached, and this many minutes after the last one leaves (default on, 30) |
-| `fsRoots` | Folders `/api/fs` may list. Default none. Only in the file. |
 | `devices` | Paired devices (token hashes). Removed in Settings or with `DELETE /api/devices/:id`. A linked computer has `computer: true`. |
 | `links` | The computers this one is linked to (Send to computer, files): `{ [computerId]: { token, deviceId, name, tailscale?, port? } }`, its own device token on each. Unlink in Settings. |
 | `sharedFolders` | Folders linked computers may use (see Files between computers). Default none. |
@@ -85,7 +84,6 @@ Every request needs `Authorization: Bearer <deviceToken>`. A WebSocket sends the
 | GET | `/api/profiles` | — | `[{ id, name, type, icon }]`; `icon` may be SVG markup |
 | POST | `/api/sessions/:id/send` | `{ computerId }` | Send to computer: this computer exports the tab's Claude chat (claude-sessions) and sends it to that linked computer, which opens it in a new tab. `{ ok, name, cwd, warnings }`, or `409 { error }`. |
 | POST | `/api/import` | A claude-sessions export zip (max 200 MB) | From a linked computer only (`403` otherwise). The zip is checked (only `meta.json`, `<id>.jsonl`, `<id>/…`; no absolute or `..` paths), imported by claude-sessions, and opened in a new tab running `claude --resume <id>` in the folder the import chose. `{ ok, cwd, warnings }`; `409` when there is no clone or it was imported before; `501` without claude-sessions. |
-| GET | `/api/fs` | `?path=` | Folder entries `{ name, type: 'dir'|'file', size, mtime }`. No `path` lists the roots. `403` outside them. |
 
 Errors are `{ "error": "<text>" }` with `400`, `401`, `403`, `404`, `409`, `429` or `500`.
 
@@ -175,18 +173,16 @@ Attaching to a background tab that has not started yet selects it in Tabby, beca
 
 Same `auth` first message as Attach. Load `GET /api/sessions` first, then apply events. Changes are checked each second and on Tabby's tab events.
 
-## Files (for the iOS catalog)
-
-| Rule | Value |
-| --- | --- |
-| Allowed roots | `fsRoots` in the settings, for example `C:\projects`, `D:\code`. Default: none, so files are off until set. |
-| Paths | Resolved and checked against the roots, so `..` and links cannot leave them |
-| Writes | None in v1 |
-| Shell in a folder | `POST /api/sessions` with `cwd` |
-
 ## Files between computers
 
-Another of the user's computers, linked to this one (a device with `computer: true`), uses files in this one's **Shared folders** (Settings › Send to computer; `sharedFolders` in the settings file, real paths). Phones get `403 not-a-computer`. Nothing is shared until a folder is added (`403 not-shared`).
+This computer's **Shared folders** (Settings › Phone access › Send to computer › Shared folders; `sharedFolders` in the settings file, real paths; an old `fsRoots` is dropped, not carried over, as Shared folders allow more). Nothing is shared until a folder is added (`403 not-shared`).
+
+| Who | May |
+| --- | --- |
+| A linked computer (`computer: true`) | Everything below |
+| A phone or browser (the page's 📁) | `roots`, `list`, `stat`, `read`, and `write` of a new file (`overwrite` is ignored). Moving, copying, making folders and deleting are `403 not-a-computer`: nothing a phone does can lose a file. |
+
+A shell in a folder: `POST /api/sessions` with `cwd`.
 
 | Rule | Value |
 | --- | --- |
