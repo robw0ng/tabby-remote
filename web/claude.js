@@ -78,6 +78,7 @@ function watchChoices (t) {
     const update = () => {
         queued = false
         if (t !== term) return
+        $('back-chip').hidden = !agentList(t)
         choices = choicesOn(t)
         claudeAsking = !!choices
         if (!choices) freeAt = -1
@@ -97,6 +98,31 @@ function watchChoices (t) {
     t.onScroll(queue)
     t.onResize(queue)
     queue()
+}
+/**
+ * Claude's agent list under its input while subagents run ("● main", "◯ general-purpose …"; ● is the view on
+ * screen, ❯ the list's cursor), when a subagent's view is open (main is ◯): its rows, and which one has the cursor.
+ */
+function agentList (t) {
+    const b = t.buffer.active
+    const rows = []
+    for (let y = b.viewportY; y < b.viewportY + t.rows; y++) {
+        const m = (b.getLine(y)?.translateToString(true) ?? '').match(/^\s*(❯\s*)?([◯●]) (\S+)/)
+        if (m && (rows.length || m[3] === 'main')) rows.push(m)
+        else if (rows.length) break
+    }
+    if (rows[0]?.[2] !== '◯') return null
+    return { cursor: rows.findIndex(m => m[1]) }
+}
+// Back to main, as on a computer: ↓ opens the list on main (or ↑ to it when the list is open), Enter shows it, and
+// ↑ closes the list, so the cursor is back in the input. (Esc would not go back: it interrupts the subagent.) A
+// moment between keys, so Claude reads each one.
+$('back-chip').addEventListener('pointerdown', e => e.preventDefault())
+$('back-chip').onclick = () => {
+    const list = term && agentList(term)
+    if (!list) return
+    const keys = [...(list.cursor < 0 ? [keySeq('down')] : Array(list.cursor).fill(keySeq('up'))), '\r', keySeq('up')]
+    keys.forEach((k, i) => setTimeout(() => sendKey(k), i * 120))
 }
 // Answering leaves the phone keyboard as it was; a tap between the options brings it back (to type an answer).
 $('answers').addEventListener('pointerdown', e => e.preventDefault())

@@ -116,6 +116,14 @@ function touchScroll (box, t, fitSize) {
         // No cursor line on screen (scrolled up, or Tabby took the size back): any tap starts typing again.
         const shown = layer.getBoundingClientRect()
         const visible = row >= 0 && row < t.rows && middle >= shown.top && middle <= shown.bottom
+        // An app that reads the mouse (Claude Code full screen) gets a tap as a click there, as on a computer: a tap
+        // on a subagent row opens it. The line being typed keeps tap-to-type; the keyboard stays as it was.
+        if (t.modes.mouseTrackingMode !== 'none' && t.__sgr && !(visible && Math.abs(e.clientY - middle) <= reach)) {
+            const x = Math.max(0, Math.min(t.cols - 1, Math.floor((e.clientX - screen.left) / (screen.width / t.cols)))) + 1
+            const y = Math.max(0, Math.min(t.rows - 1, Math.floor((e.clientY - screen.top) / cell))) + 1
+            sendKey(`\x1b[<0;${x};${y}M`)
+            return sendKey(`\x1b[<0;${x};${y}m`)
+        }
         if (!visible) return typeHere(t)
         if (Math.abs(e.clientY - middle) > reach) {
             // With the keyboard away, any tap brings it back.

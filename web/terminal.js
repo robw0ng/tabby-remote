@@ -126,6 +126,8 @@ function open (sessionId, paneId) {
     ws.binaryType = 'arraybuffer'
     const send = m => ws.readyState === 1 && ws.send(JSON.stringify(m))
     const t = term
+    // Whether the app reads the mouse in SGR form (Claude Code does): a tap is then sent to it as a click (touch.js).
+    for (const final of ['h', 'l']) t.parser.registerCsiHandler({ prefix: '?', final }, params => { if (params.includes(1006)) t.__sgr = final === 'h'; return false })
     let exited = false
     ws.onopen = () => {
         send({ type: 'auth', token })
@@ -138,6 +140,7 @@ function open (sessionId, paneId) {
         if (m.type === 'snapshot') {
             setStatus(null)
             t.reset()
+            t.__sgr = false
             t.resize(m.cols, m.rows)
             // Then take this screen's size: xterm rewraps the history, and the shell redraws for the new width.
             t.write(m.data, () => {

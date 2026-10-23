@@ -288,6 +288,11 @@ body.keyboard #keys { padding-bottom: 4px; }
 /* Hide (top right of the options) folds them into a small Options chip in the corner, which brings them back. */
 #answers .answers-hide { align-self: flex-end; padding: 4px 12px; font-size: 13px; color: var(--dim); }
 #answers > .answers-show { position: absolute; right: 8px; bottom: 8px; padding: 6px 12px; font-size: 13px; background: #1e1e1e; box-shadow: 0 2px 8px rgba(0,0,0,.5); }
+/* Back from a subagent's view: top right over the terminal (Claude's agent list is at the bottom left). */
+#back-chip { position: relative; height: 0; z-index: 30; }
+#back-chip[hidden] { display: none; }
+#back-chip button { position: absolute; right: 8px; top: 8px; padding: 6px 12px; font-size: 13px; border: 1px solid var(--line); border-radius: 8px; background: #1e1e1e; color: inherit; box-shadow: 0 2px 8px rgba(0,0,0,.5); touch-action: manipulation; }
+#back-chip button:active { background: #333; }
 
 /* Hover only with a mouse: on touch screens a touch (even one that scrolls) leaves :hover stuck on. */
 @media (hover: hover) and (pointer: fine) {
