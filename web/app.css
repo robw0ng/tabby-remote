@@ -245,7 +245,14 @@ body.keyboard #keys { padding-bottom: 4px; }
 #pw-form > button { padding: 8px 12px; border-radius: 6px; border: 1px solid var(--line); background: #222; }
 .err { color: #f77; min-height: 1.2em; }
 
-/* ---- Wide: terminal left, sidebar right, like Tabby. Narrow: one at a time. ---- */
+/* The sidebar on Tabby's tab bar side (app.js sets data-side): on the left, everything that faces it is mirrored,
+   so ☰ and the back arrow sit on that side and the arrow points to it. */
+[data-side="left"] #app { flex-direction: row-reverse; }
+[data-side="left"] #side { border-left: 0; border-right: 1px solid var(--line); }
+[data-side="left"] #show-list, [data-side="left"] #hide-list { order: -1; }
+[data-side="left"] #hide-list svg { transform: scaleX(-1); }
+
+/* ---- Wide: terminal and sidebar side by side, like Tabby. Narrow: one at a time. ---- */
 @media (min-width: 800px) and (min-height: 501px) {
   #show-list, #hide-list { display: none; }
 }
@@ -256,6 +263,7 @@ body.keyboard #keys { padding-bottom: 4px; }
     transform: translateX(100%); visibility: hidden; transition: transform .22s ease, visibility 0s .22s;
   }
   #app[data-view="list"] #side { transform: none; visibility: visible; transition: transform .22s ease; }
+  [data-side="left"] #side { transform: translateX(-100%); border-right: 0; }
   .row .cwd { font-size: 12px; }
   .grp-head { font-size: 15px; }
 }

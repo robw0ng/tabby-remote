@@ -41,6 +41,14 @@ const remember = (key, value) => {
         localStorage.setItem('tabby-remote-' + key, JSON.stringify(value))
     } catch { }
 }
+/** The sidebar's side: where Tabby's tab bar is (left, or right for a bar on the top, bottom or right). The last one
+ *  is remembered, so the page does not open on the wrong side and then jump. */
+function applySide (side) {
+    document.documentElement.dataset.side = side === 'left' ? 'left' : 'right'
+    remember('side', document.documentElement.dataset.side)
+}
+applySide(saved('side'))
+const sideLeft = () => document.documentElement.dataset.side === 'left'
 let current = null // { sessionId, paneId }
 let me = null // this device: { id, name, color }
 let hasGroups = true // tabby-groups is installed in Tabby

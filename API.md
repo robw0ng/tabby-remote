@@ -61,7 +61,7 @@ Every request needs `Authorization: Bearer <deviceToken>`. A WebSocket sends the
 
 | Method | Path | Body / query | Returns |
 | --- | --- | --- | --- |
-| GET | `/api/info` | — | `{ tabby, plugin, host, id, name, port, password, groups }`: versions, host name, this computer's permanent `id`, display `name` and listening `port` (so a client that knows several computers can tell them apart, also at a new address), whether password login is on, whether tabby-groups is installed. No auth. |
+| GET | `/api/info` | — | `{ tabby, plugin, host, id, name, port, password, groups, side }`: versions, host name, this computer's permanent `id`, display `name` and listening `port` (so a client that knows several computers can tell them apart, also at a new address), whether password login is on, whether tabby-groups is installed, and `side`, `left` or `right`: where Tabby's tab bar is (the page puts its sidebar there; the events socket sends `{ type: "side", side }` when it changes). No auth. |
 | POST | `/api/pair` | `{ code, deviceName, computer? }` | `{ token, deviceId }`. `computer: true`: another of the user's computers linking (Send to computer). |
 | POST | `/api/login` | `{ password, deviceName, computer? }` | `{ token, deviceId }`; `computer` as for `/api/pair` |
 | GET | `/api/devices` | — | `[{ id, name, created, current }]` |

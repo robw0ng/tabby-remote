@@ -19,6 +19,7 @@ async function start () {
     hasGroups = info.groups !== false
     // Which computer this is (an older server sends no name).
     computer = info.name ?? ''
+    if (info.side) applySide(info.side)
     $('term-host').textContent = computer
     renderTree()
     listen()
@@ -48,6 +49,7 @@ function listen () {
         }
         else if (m.type === 'closed') sessions = sessions.filter(s => s.id !== m.id)
         else if (m.type === 'groups') groups = m.groups
+        else if (m.type === 'side') applySide(m.side)
         queueRender()
         if (current && m.session?.id === current.sessionId) renderHead()
     }

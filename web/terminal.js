@@ -20,9 +20,9 @@ $('show-list').onclick = () => setView('list')
 $('hide-list').onclick = () => setView('term')
 
 /**
- * On phones, swipe the sidebar open and shut: right to left on the terminal opens it (it slides in from the
- * right), left to right on the sidebar closes it. A quick, mostly sideways swipe only, so scrolling, the cursor
- * slide and swiping a tab row away (leftwards, inside the list) keep their own gestures.
+ * On phones, swipe the sidebar open and shut: on the terminal away from the sidebar's side opens it (it slides in
+ * from that side), the other way on the sidebar closes it. A quick, mostly sideways swipe only, so scrolling, the
+ * cursor slide and swiping a tab row away (leftwards, inside the list) keep their own gestures.
  */
 // One touch, one axis: after AXIS_PX of movement a touch is sideways or up-and-down until the finger lifts. Sideways
 // (clearly more across than down) is the page's: the page stops scrolling. Up-and-down is the browser's: it scrolls
@@ -56,13 +56,15 @@ function sideSwipe (area, dir, act, anyWidth = false) {
         if (!(narrow.matches || anyWidth)) return
         // Not when the move was something else: a cursor slide, a drag, a row swipe.
         const sliding = area.querySelector('.scroller')?.dataset.sliding
-        if (ms < 600 && !sliding && !drag && !swipe && dx * dir > 60) act()
+        if (ms < 600 && !sliding && !drag && !swipe && dx * dir() > 60) act()
     })
 }
-sideSwipe($('term-box'), -1, () => setView('list'))
-sideSwipe($('side'), 1, () => current && setView('term'))
-// Swipe right on the terminal: accept the grey suggestion (on tablets too).
-sideSwipe($('term-box'), 1, () => acceptSuggestion(), true)
+// The sidebar comes in from its side, and goes back out that way. The other way on the terminal accepts the grey
+// suggestion (on tablets too): right with the sidebar on the right, left with it on the left.
+const fromSide = () => sideLeft() ? 1 : -1
+sideSwipe($('term-box'), fromSide, () => setView('list'))
+sideSwipe($('side'), () => -fromSide(), () => current && setView('term'))
+sideSwipe($('term-box'), () => -fromSide(), () => acceptSuggestion(), true)
 
 function renderHead () {
     const s = sessions.find(x => x.id === current?.sessionId)
