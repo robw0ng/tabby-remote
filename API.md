@@ -26,7 +26,8 @@ Set in Tabby's **Settings > Phone access**, and saved in `tabby-remote.json` in 
 | `keepAwake`, `awakeMinutes` | Keep the PC awake while a device is attached, and this many minutes after the last one leaves (default on, 30) |
 | `fsRoots` | Folders `/api/fs` may list. Default none. Only in the file. |
 | `devices` | Paired devices (token hashes). Removed in Settings or with `DELETE /api/devices/:id`. A linked computer has `computer: true`. |
-| `links` | The computers this one sends Claude chats to: `{ [computerId]: { token, deviceId, name } }`, its own device token on each. Unlink in Settings. |
+| `links` | The computers this one is linked to (Send to computer, files): `{ [computerId]: { token, deviceId, name, tailscale?, port? } }`, its own device token on each. Unlink in Settings. |
+| `sharedFolders` | Folders linked computers may use (see Files between computers). Default none. |
 | `announce` | Show this computer to the user's other computers (default on): a UDP broadcast every 30 s on port 41681 of the Wi-Fi network, `{ app: "tabby-remote", v: 1, computerId, name, port }`. Nothing secret. Every Tabby listens for the others' (see `/api/computers`). |
 
 ## Transport
@@ -61,7 +62,7 @@ Every request needs `Authorization: Bearer <deviceToken>`. A WebSocket sends the
 
 | Method | Path | Body / query | Returns |
 | --- | --- | --- | --- |
-| GET | `/api/info` | — | `{ tabby, plugin, host, id, name, port, password, groups, side }`: versions, host name, this computer's permanent `id`, display `name` and listening `port` (so a client that knows several computers can tell them apart, also at a new address), whether password login is on, whether tabby-groups is installed, and `side`, `left` or `right`: where Tabby's tab bar is (the page puts its sidebar there; the events socket sends `{ type: "side", side }` when it changes). No auth. |
+| GET | `/api/info` | — | `{ tabby, plugin, host, id, name, port, password, groups, side, tailscale }`: versions, host name, this computer's permanent `id`, display `name` and listening `port` (so a client that knows several computers can tell them apart, also at a new address), whether password login is on, whether tabby-groups is installed, and `side`, `left` or `right`: where Tabby's tab bar is (the page puts its sidebar there; the events socket sends `{ type: "side", side }` when it changes), and `tailscale`: its Tailscale name or address, or `null`. No auth. |
 | POST | `/api/pair` | `{ code, deviceName, computer? }` | `{ token, deviceId }`. `computer: true`: another of the user's computers linking (Send to computer). |
 | POST | `/api/login` | `{ password, deviceName, computer? }` | `{ token, deviceId }`; `computer` as for `/api/pair` |
 | GET | `/api/devices` | — | `[{ id, name, created, current }]` |
@@ -182,6 +183,36 @@ Same `auth` first message as Attach. Load `GET /api/sessions` first, then apply 
 | Paths | Resolved and checked against the roots, so `..` and links cannot leave them |
 | Writes | None in v1 |
 | Shell in a folder | `POST /api/sessions` with `cwd` |
+
+## Files between computers
+
+Another of the user's computers, linked to this one (a device with `computer: true`), uses files in this one's **Shared folders** (Settings › Send to computer; `sharedFolders` in the settings file, real paths). Phones get `403 not-a-computer`. Nothing is shared until a folder is added (`403 not-shared`).
+
+| Rule | Value |
+| --- | --- |
+| Paths | Absolute local paths on that computer; `/` works as a separator on Windows too. Resolved to the real path before the check, so `..`, links and junctions cannot leave a shared folder (`403 outside`). A network path (`\\host\share`) or a relative one is `400 bad-path`. |
+| Shared folders themselves | Listed and read, never moved, overwritten or deleted (`403 shared-folder`) |
+| Big files | Streamed both ways, no size limit, no request time limit |
+| Errors | `{ error, code }`: `missing` (404), `exists` (409), `outside`, `not-shared`, `shared-folder`, `not-a-computer` (403), `bad-path`, `bad-body`, `incomplete`, `into-itself`, `not-a-part` (400), `denied` (409, locked or no permission) |
+
+| Method | Path | Body / query | Returns |
+| --- | --- | --- | --- |
+| GET | `/api/files/roots` | — | `[{ name, path }]`: the shared folders, each named after its folder and unique here (`Docs`, `Docs (2)`) |
+| GET | `/api/files/list` | `?path=` | `[{ name, type: 'dir'|'file', size, mtime }]`: links followed; `mtime` in ms since the epoch; `size` 0 for folders |
+| GET | `/api/files/stat` | `?path=` | `{ name, type, size, mtime }` |
+| GET | `/api/files/read` | `?path=`; optional `Range: bytes=N-` or `N-M` | The file, streamed (`Content-Length`; `206` for a range) |
+| PUT | `/api/files/write` | `?path=&overwrite=1?`; the file as the body | `{ name, type, size, mtime }`. Written to `.<name>.tabby-part-<id>` beside it and renamed into place at the end; a broken or failed upload leaves nothing. `409 exists` without `overwrite=1`; `404` when its folder does not exist. |
+| POST | `/api/files/mkdir` | `{ path }` | `{}`, with any missing parents |
+| POST | `/api/files/move` | `{ from, to, overwrite? }` | `{}`: rename or move inside the shared folders |
+| POST | `/api/files/copy` | `{ from, to }` | `{}`: a recursive copy on this computer (none over the network); `409 exists` |
+| POST | `/api/files/delete` | `{ path, part? }` | `{}`: to the Recycle Bin / Trash. `part: true` removes a transfer's own unfinished `.<name>.tabby-part-<id>` file or folder outright, and nothing else. |
+
+In Tabby, for the Files tab (tabby-files), `window.__tabbyRemote.files`:
+
+| Call | Returns |
+| --- | --- |
+| `computers()` | `Promise<[{ id, name, online }]>`: the computers this one is linked to; `name` keeps only letters, digits, `-` and `_`. Each is reached at its address on this network, else its Tailscale name (remembered from its `/api/info`). |
+| `fetch(id, op, { query, method, body, signal, headers })` | `Promise<http.IncomingMessage>`: `/api/files/<op>` there, with this computer's token for it. `body`: a Readable or Buffer as is, anything else as JSON. Any status resolves; rejects only on a network error (`code: 'offline'`), an unknown id (`'unknown'`) or `signal` aborting (a broken write leaves nothing there). |
 
 ## Remote sign in Tabby
 
