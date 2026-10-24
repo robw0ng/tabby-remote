@@ -60,6 +60,7 @@ async function showFolder (dir) {
     const entries = dir
         ? body.sort((a, b) => (a.type === 'dir' ? 0 : 1) - (b.type === 'dir' ? 0 : 1) || a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }))
         : body.map(r => ({ name: r.name, type: 'dir', path: r.path, size: 0, mtime: null }))
+    navState()
     list.replaceChildren(...entries.length ? entries.map(e => {
         const p = e.path ?? joinPath(dir, e.name)
         // Dragged onto the desktop or into Explorer/Finder, a file downloads there (Chrome and Edge: DownloadURL;
@@ -72,7 +73,7 @@ async function showFolder (dir) {
                 ev.dataTransfer.effectAllowed = 'copy'
                 ev.dataTransfer.setData('DownloadURL', `application/octet-stream:${e.name.replace(/:/g, '_')}:${location.origin}${e.url}`)
             },
-            onclick: () => e.type === 'dir' ? showFolder(p) : showFile(p, e),
+            onclick: () => e.type === 'dir' ? goTo(p) : showFile(p, e),
         },
             el('span', { className: 'file-icon', textContent: e.type === 'dir' ? '📁' : IMAGE.test(e.name) ? '🖼️' : '📄', ariaHidden: 'true' }),
             el('span', { className: 'file-name', textContent: e.name }),
@@ -88,6 +89,7 @@ function showMessage (title, text) {
     $('files-preview').hidden = true
     $('files-list').hidden = false
     $('files-list').replaceChildren(el('div', { className: 'files-empty' }, el('b', { textContent: title }), text ? el('p', { textContent: text }) : null))
+    navState()
 }
 
 /** A file: a preview (text or image), Download and Paste path. */
@@ -100,6 +102,7 @@ async function showFile (p, e) {
     $('files-upload').hidden = true
     $('files-paste').hidden = true
     files.at = folderOf(p)
+    navState()
     const view = el('div', { className: 'file-view', textContent: 'Loading…' })
     box.replaceChildren(el('div', { className: 'file-actions' },
         el('button', { textContent: 'Download', onclick: () => download(p, e.name) }),
@@ -150,11 +153,60 @@ function pasteHere (p) {
     pastePaths([p])
 }
 $('files-paste').onclick = () => files.at && pasteHere(files.at)
-$('files-up').onclick = () => {
-    const root = files.at && rootOf(files.at)
-    // From a file's preview, or below a shared folder: up one; from a shared folder itself: the list of them.
-    if (!$('files-preview').hidden) return showFolder(files.at)
-    showFolder(!root || files.at === root.path ? null : folderOf(files.at))
+$('files-up').onclick = () => goUp()
+$('files-back').onclick = () => goBack()
+$('files-fwd').onclick = () => goForward()
+
+// History, as in a file browser: each folder opened is a step that Back returns from and Forward goes to again.
+const hist = { back: [], fwd: [] }
+const previewing = () => !$('files-preview').hidden
+function navState () {
+    $('files-back').disabled = !hist.back.length && !previewing()
+    $('files-fwd').disabled = !hist.fwd.length
+}
+function goTo (dir) {
+    if (dir === files.at && !previewing()) return
+    hist.back.push(files.at)
+    hist.fwd.length = 0
+    showFolder(dir)
+}
+// From a file's preview, Back (and Up) is its folder; a preview is not a step of its own.
+function goBack () {
+    if (previewing()) return showFolder(files.at)
+    if (!hist.back.length) return
+    hist.fwd.push(files.at)
+    showFolder(hist.back.pop())
+}
+function goForward () {
+    if (!hist.fwd.length) return
+    hist.back.push(files.at)
+    showFolder(hist.fwd.pop())
+}
+// Below a shared folder: up one; from a shared folder itself: the list of them.
+function goUp () {
+    if (previewing()) return showFolder(files.at)
+    if (!files.at) return
+    const root = rootOf(files.at)
+    goTo(!root || files.at === root.path ? null : folderOf(files.at))
+}
+
+// While the panel is open: Alt+←/→/↑, the mouse's back and forward buttons, and (with a keyboard, not while typing)
+// Backspace. The mouse buttons are kept from the browser, whose own Back would leave the page.
+document.addEventListener('keydown', e => {
+    if ($('files').hidden || e.ctrlKey || e.metaKey || e.shiftKey) return
+    const typing = e.target.closest?.('input, textarea, [contenteditable]')
+    const act = e.altKey ? { ArrowLeft: goBack, ArrowRight: goForward, ArrowUp: goUp }[e.key] : e.key === 'Backspace' && !typing && !touch.matches && goBack
+    if (!act) return
+    e.preventDefault()
+    e.stopPropagation()
+    act()
+}, true)
+for (const type of ['mousedown', 'mouseup', 'auxclick']) {
+    window.addEventListener(type, e => {
+        if ($('files').hidden || (e.button !== 3 && e.button !== 4)) return
+        e.preventDefault()
+        if (type === 'mouseup') (e.button === 3 ? goBack : goForward)()
+    }, true)
 }
 
 // Upload into the open folder: a file that is already there is kept, and the new one gets a free name ("a (2).txt").
