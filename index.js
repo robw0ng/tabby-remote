@@ -8,7 +8,7 @@ const VERSION = require('./package.json').version
 
 // Each part adds its functions to the shared context and calls the others through it, so their order only matters
 // for what a part does as it starts.
-const PARTS = ['model', 'presence', 'power', 'size', 'attach', 'devices', 'tailscale', 'pairing', 'sessions', 'events', 'files', 'identity', 'share', 'move', 'routes', 'server', 'discovery', 'settings']
+const PARTS = ['model', 'presence', 'power', 'size', 'attach', 'devices', 'tailscale', 'pairing', 'sessions', 'events', 'files', 'identity', 'share', 'move', 'talk', 'routes', 'server', 'discovery', 'settings']
 
 function install (injector) {
     // Reloading in place (new files, Tabby kept running): the old instance lets go first, and the new server starts
@@ -56,6 +56,8 @@ function install (injector) {
         renderSettings: ctx.inZone(ctx.renderSettings),
         /** The files of the computers this one is linked to (tabby-files' Files tab): computers(), fetch(id, op, …). */
         files: ctx.filesApi,
+        /** Message a Claude tab on a linked computer (tabby-groups' tab-say.mjs --computer): say(computer, tab, message, from), chats(computer). */
+        talk: ctx.talkApi,
         /** A Claude tab's right-click menu: Send to computer ▸ one of the others seen on the network. */
         tabMenu (tab) {
             if (!ctx.claudeSessionOf(tab) || !ctx.canMove()) return []
