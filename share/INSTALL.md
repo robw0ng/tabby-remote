@@ -67,7 +67,7 @@ The result must be `.../node_modules/tabby-remote/index.js`, not `tabby-remote` 
 
 Ask the user to quit Tabby (macOS: Cmd+Q) and open it again. Tabby loads plugins only at startup.
 
-Before that, tell the user what may happen: on the first start, Windows (or the macOS firewall, when on) may ask whether Tabby can accept connections. That is the plugin's port 7681, so a phone on the same Wi-Fi can reach Tabby; only paired devices can use it. (It also announces itself on UDP port 41681 so the user's other computers running it can list it; nothing secret is sent, and it can be turned off in Settings > Phone access.) Allowing it on private networks makes phone access work; denying it keeps phone access off this network. On macOS 15 or later, macOS may also ask whether Tabby may find devices on the local network; denying that only leaves the list of other computers empty. Let the user choose.
+Before that, tell the user what may happen: on the first start, Windows (or the macOS firewall, when on) may ask whether Tabby can accept connections. That is the plugin's port 7681, so a phone on the same Wi-Fi can reach Tabby; only paired devices can use it. (It also announces itself on UDP port 41681 so the user's other computers running it can list it; nothing secret is sent, and it can be turned off in Settings > Devices.) Allowing it on private networks makes phone access work; denying it keeps phone access off this network. On macOS 15 or later, macOS may also ask whether Tabby may find devices on the local network; denying that only leaves the list of other computers empty. Let the user choose.
 
 ## 5. Verify
 
@@ -86,8 +86,8 @@ Expect `{ tabby, plugin, host, id, name, port, password, groups }`; `plugin` is 
 | Result | Meaning |
 | --- | --- |
 | Answers | Installed and running |
-| Refused | Tabby was not restarted, phone access is turned off in Settings > Phone access, or the port was changed there |
-| Another app answers | Something else holds port 7681: pick another port in Settings > Phone access and restart Tabby |
+| Refused | Tabby was not restarted, Allow connections is off in Settings > Devices, or the port was changed there |
+| Another app answers | Something else holds port 7681: pick another port in Settings > Devices and restart Tabby |
 
 ## 6. Report to the user
 
@@ -95,5 +95,5 @@ Expect `{ tabby, plugin, host, id, name, port, password, groups }`; `plugin` is 
 | --- | --- |
 | Installed | The version (`plugin` from step 5) |
 | Pair a phone | Click the QR button in Tabby's toolbar and scan it with the phone's camera, on the same Wi-Fi. On an iPhone, Share > Add to Home Screen opens it like an app. |
-| Turn it off | Tabby Settings > Phone access: switch Phone access off. Paired devices stay paired. |
+| Turn it off | Tabby Settings > Devices: switch Allow connections off. Paired devices stay paired. |
 | Uninstall | Quit Tabby, delete the `tabby-remote` folder from the plugins folder, start Tabby |

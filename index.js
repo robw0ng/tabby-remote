@@ -66,7 +66,7 @@ function install (injector) {
             return [{
                 label: 'Send to computer',
                 submenu: targets.length
-                    ? targets.map(c => c.linked ? { label: c.name, click: send(c.computerId) } : { label: `${c.name} (link it in Settings > Phone access)`, enabled: false })
+                    ? targets.map(c => c.linked ? { label: c.name, click: send(c.computerId) } : { label: `${c.name} (link it in Settings › Devices)`, enabled: false })
                     : [{ label: 'No other computers seen on this network', enabled: false }],
             }]
         },
@@ -100,7 +100,7 @@ const QR_ICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fil
 
 class RemoteButtonProvider extends core.ToolbarButtonProvider {
     provide () {
-        return [{ icon: QR_ICON, title: 'Phone access', weight: 5, click: () => window.__tabbyRemote?.showQr() }]
+        return [{ icon: QR_ICON, title: 'Pair a phone or computer', weight: 5, click: () => window.__tabbyRemote?.showQr() }]
     }
 }
 
@@ -111,7 +111,7 @@ class RemoteTabMenuProvider extends core.TabContextMenuItemProvider {
     }
 }
 
-// Settings > Phone access. Tabby has no template compiler at run time, so the component is declared by hand,
+// Settings > Devices. Tabby has no template compiler at run time, so the component is declared by hand,
 // with an empty template; install() fills it with plain DOM, and a hot reload brings the new page with it.
 class RemoteSettingsComponent {
     constructor (ref) {
@@ -131,7 +131,7 @@ class RemoteSettingsTabProvider extends settings.SettingsTabProvider {
         super()
         this.id = 'tabby-remote'
         this.icon = 'mobile-alt'
-        this.title = 'Phone access'
+        this.title = 'Devices'
     }
 
     getComponentType () {

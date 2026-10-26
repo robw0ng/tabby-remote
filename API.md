@@ -14,11 +14,11 @@ A Tabby plugin that serves the running Tabby's terminals to other devices. Your 
 
 ## Settings
 
-Set in Tabby's **Settings > Phone access**, and saved in `tabby-remote.json` in Tabby's user-data folder (`%APPDATA%\tabby`, `~/Library/Application Support/tabby`, `~/.config/tabby`).
+Set in Tabby's **Settings > Devices**, and saved in `tabby-remote.json` in Tabby's user-data folder (`%APPDATA%\tabby`, `~/Library/Application Support/tabby`, `~/.config/tabby`).
 
 | Key | Value |
 | --- | --- |
-| `enabled` | Phone access on or off (default on). Off: nothing listens and every device is disconnected; devices stay paired. |
+| `enabled` | Allow connections, on or off (default on). Off: nothing listens and every device is disconnected; devices stay paired. |
 | `name` | What clients call this computer (header, Home Screen icon). Default: the computer's host name. |
 | `computerId` | Permanent random id of this Tabby, created on first start |
 | `port` | Default `7681`. Applies after a Tabby restart. When taken (another Tabby on the same computer), the next free of the 10 after it is used and saved here. |
@@ -47,7 +47,7 @@ Every request needs `Authorization: Bearer <deviceToken>`. A WebSocket sends the
 | Method | Flow |
 | --- | --- |
 | QR pairing | The QR button next to Tabby's Settings gear shows a QR code for `http://<lan-ip>:<port>/#pair=<code>` and the 6-digit code. The page (or your app) calls `POST /api/pair` with the code within 2 minutes and gets its own token. Tabby shows "<device> paired". |
-| Password | Set in Settings > Phone access. `POST /api/login` with the password returns a device token. |
+| Password | Set in Settings > Devices. `POST /api/login` with the password returns a device token. |
 
 | Rule | Value |
 | --- | --- |
@@ -66,7 +66,8 @@ Anything on the network can announce itself as another computer, so linking neve
 | 1 | `POST /api/identity` there: it must sign the nonce with the address it saw the question come from, so a host passing the question on to the real computer fails. |
 | 2 | The user confirms the fingerprint shown matches the other computer's own (its Settings, or under its QR). A different one means something else is answering: Cancel, and nothing is sent. |
 | 3 | The password or code goes to `/api/login` or `/api/pair` as `{ sealed: { epk, iv, ct, tag } }`: X25519 with a fresh key, HKDF-SHA256 (salt: that key, info `tabby-remote link v1`), AES-256-GCM, to the confirmed `box` key. The token comes back sealed with the same key. Phones still send theirs as they are. |
-| 4 | The link pins the other's `sign` and `box` keys; later checks (before a token is sent, see Files between computers) are step 1 against the pinned keys. A link saved before identities proves itself with `/api/prove` once, and pins them then. |
+| 4 | Link back: the linking computer gives the other a token for itself too (`POST /api/link-back` there, sealed the same way, signed in with the token it just got inside the seal, with its own `computerId`, `sign` and `box`). The other links back only when the request came from that computer's announced address and it proves those keys (step 1). So one link works both ways; removing either side's device unlinks both. |
+| 5 | The link pins the other's `sign` and `box` keys; later checks (before a token is sent, see Files between computers) are step 1 against the pinned keys. A link saved before identities proves itself with `/api/prove` once, and pins them then. |
 
 ## REST
 
@@ -189,7 +190,7 @@ Same `auth` first message as Attach. Load `GET /api/sessions` first, then apply 
 
 ## Files between computers
 
-This computer's **Shared folders** (Settings › Phone access › Send to computer › Shared folders; `sharedFolders` in the settings file, real paths; an old `fsRoots` is dropped, not carried over, as Shared folders allow more). Nothing is shared until a folder is added (`403 not-shared`).
+This computer's **Shared folders** (Settings › Devices › Shared folders; `sharedFolders` in the settings file, real paths; an old `fsRoots` is dropped, not carried over, as Shared folders allow more). Nothing is shared until a folder is added (`403 not-shared`).
 
 | Who | May |
 | --- | --- |

@@ -31,7 +31,7 @@ function signOut (msg) {
 let hasPassword = false
 $('pw-btn').onclick = () => {
     if (!hasPassword) {
-        $('signin-err').textContent = 'No password is set yet. On the PC: Tabby Settings › Phone access › Password.'
+        $('signin-err').textContent = 'No password is set yet. On the PC: Tabby Settings › Devices › Phones and browsers › Password.'
         return
     }
     $('signin-err').textContent = ''

@@ -42,16 +42,19 @@ Needs Tabby 1.0. For an agent-run install on Windows or macOS (safe to rerun, wi
 
 ## Settings
 
-Tabby **Settings > Phone access**:
+Tabby **Settings > Devices**:
 
 | Setting | Default |
 | --- | --- |
-| Phone access | On. Off stops listening on the network and drops connected devices; they stay paired. |
+| Allow connections | On. Off stops listening on the network and drops phones and linked computers; they stay paired. |
 | Computer name | The computer's own name. Shown in the phone's header and as its Home Screen icon's name, so each computer gets its own icon. |
 | Port | `7681`, or the next free one when another Tabby on the computer has it |
 | Password sign-in | Off (QR only) |
+| Paired phones and browsers | Remove one to sign it out |
+| Your computers | Link once, from either computer: both can reach each other (see below) |
+| Show this computer on my network | On: your other computers find this one |
+| Shared folders | None |
 | Keep this computer awake | On, and 30 minutes after the last device leaves |
-| Paired devices | Remove one to sign it out |
 
 ## Reloading without restarting Tabby
 
@@ -69,13 +72,17 @@ Install [Tailscale](https://tailscale.com) on the phone and the computer, and tu
 
 ## Send to computer
 
-Moves a Claude chat to another of your computers on the same network, which opens it in a new tab and resumes it: right-click a Claude tab › **Send to computer**, or long-press it on the phone. Link each computer once in Settings > Phone access › Send to computer, with its password or the code from its QR button; it then shows this one among its paired devices, and removing it there unlinks it. Compact a big chat and push its branch first: the other computer opens it in its own clone of the repo.
+Moves a Claude chat to another of your computers on the same network, which opens it in a new tab and resumes it: right-click a Claude tab › **Send to computer**, or long-press it on the phone. Link the two computers once, from either one, in Settings › Devices › Your computers, with the code from the other's QR button (or its password): the other links back by itself, so both reach each other. Unlinking on either one unlinks both. Compact a big chat and push its branch first: the other computer opens it in its own clone of the repo.
 
 Needs the [claude-sessions](https://github.com/robw0ng/claude-sessions) plugin and Node.js on both computers; without them the menu item stays hidden.
 
+## Talk between computers
+
+The Claude chats on two linked computers can message each other: a chat here types a message into a Claude tab there, which answers the same way, so they can compare their environments, hand each other steps and work on one task together. With [tabby-groups](https://github.com/robw0ng/tabby-groups): `node tab-say.mjs "<tab there>" "<message>" --computer <name>` (`--computer <name>` alone lists its Claude tabs). A message arrives as `[from <computer> · "<tab>"] …` with the reply command; only Claude tabs take one, never a shell, and Tabby shows a notice for each. Needs tabby-groups 0.1.5 or later on both computers.
+
 ## Files between computers
 
-Linked computers also use each other's **Shared folders** (Settings › Phone access › Send to computer › Shared folders): browse, copy, move and delete files there, for example from the Files tab of [tabby-files](https://github.com/robw0ng/tabby-files). Nothing is shared until you add a folder. Phones and browsers get the 📁 button on the page: browse, preview, download, upload new files, and paste a path into the terminal; moving, overwriting and deleting stay with linked computers. Nothing outside those folders is reachable, through `..` or links; deleted files go to the Recycle Bin / Trash. Big files stream with no size limit. Both computers need this version: each checks the other is really the computer it linked to before using it. When linking, check the fingerprint Tabby shows matches the one in the other computer's Settings › Phone access (or under its QR): if it doesn't, something else on the network is answering, and nothing is sent.
+Linked computers also use each other's **Shared folders** (Settings › Devices › Shared folders): browse, copy, move and delete files there, for example from the Files tab of [tabby-files](https://github.com/robw0ng/tabby-files). Nothing is shared until you add a folder. Phones and browsers get the 📁 button on the page: browse, preview, download, upload new files, and paste a path into the terminal; moving, overwriting and deleting stay with linked computers. Nothing outside those folders is reachable, through `..` or links; deleted files go to the Recycle Bin / Trash. Big files stream with no size limit. Both computers need this version: each checks the other is really the computer it linked to before using it. When linking, check the fingerprint Tabby shows matches the one in the other computer's Settings › Devices › This computer (or under its QR): if it doesn't, something else on the network is answering, and nothing is sent.
 
 ## Works with tabby-groups
 

@@ -1,4 +1,4 @@
-// ---- 📁: the Shared folders of the computer this page is on (Tabby's Settings › Phone access) ----
+// ---- 📁: the Shared folders of the computer this page is on (Tabby's Settings › Devices) ----
 
 // A preview shows this much of a text file at most; images up to IMAGE_MAX.
 const TEXT_MAX = 256 << 10
@@ -48,7 +48,7 @@ async function showFolder (dir) {
     if (!dir) {
         files.roots = body
         files.sep = body[0]?.path.includes('/') && !body[0].path.includes('\\') ? '/' : '\\'
-        if (!body.length) return showMessage('Share folders in Settings', 'On the computer: Tabby › Settings › Phone access › Shared folders. Only those folders show here.')
+        if (!body.length) return showMessage('Share folders in Settings', 'On the computer: Tabby › Settings › Devices › Shared folders. Only those folders show here.')
     }
     files.at = dir
     const root = dir && rootOf(dir)

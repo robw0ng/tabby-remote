@@ -119,8 +119,8 @@ Expect `{ tabby, plugin, host, id, name, port, password, groups }`. `"password":
 | Result | Meaning |
 | --- | --- |
 | Answers | Installed and running. `groups: true` means tabby-groups is installed too. |
-| Connection refused | Tabby has not been restarted, or the port was changed in Settings > Phone access. Check whether `tabby-remote.json` in Tabby's data folder has a different `port`. |
-| Another app answers | Something else holds port 7681. Pick another port in Settings > Phone access and restart Tabby. |
+| Connection refused | Tabby has not been restarted, or the port was changed in Settings > Devices. Check whether `tabby-remote.json` in Tabby's data folder has a different `port`. |
+| Another app answers | Something else holds port 7681. Pick another port in Settings > Devices and restart Tabby. |
 
 ## 6. Hand over to the user
 
@@ -129,7 +129,7 @@ Tell the user:
 | To | Do |
 | --- | --- |
 | Pair a phone or tablet | Click the QR button in Tabby's toolbar and scan it with the phone's camera (same Wi-Fi). |
-| Change settings | Tabby **Settings > Phone access**: address, keep awake, password, port, paired devices. |
+| Change settings | Tabby **Settings > Devices**: address, port, password, paired phones, your computers, shared folders, keep awake. |
 | Install it as an app | On the phone, Share > Add to Home Screen |
 | Get the groups sidebar | Optionally install tabby-groups (https://github.com/robw0ng/tabby-groups) the same way. Without it, the phone lists plain tabs. |
 
