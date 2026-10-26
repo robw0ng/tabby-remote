@@ -58,6 +58,8 @@ function install (injector) {
         files: ctx.filesApi,
         /** Message a Claude tab on a linked computer (tabby-groups' tab-say.mjs --computer): say(computer, tab, message, from), chats(computer). */
         talk: ctx.talkApi,
+        /** This computer's Shared folders, for a Claude here (tabby-files' files.mjs share): list(), add(path), remove(path). */
+        shares: { list: ctx.sharesApi.list, add: ctx.inZone(ctx.sharesApi.add), remove: ctx.inZone(ctx.sharesApi.remove) },
         /** A Claude tab's right-click menu: Send to computer ▸ one of the others seen on the network. */
         tabMenu (tab) {
             if (!ctx.claudeSessionOf(tab) || !ctx.canMove()) return []

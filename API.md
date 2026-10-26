@@ -226,6 +226,14 @@ In Tabby, for the Files tab (tabby-files), `window.__tabbyRemote.files`:
 | `computers()` | `Promise<[{ id, name, online }]>`: the computers this one is linked to; `name` keeps only letters, digits, `-` and `_`. Each is reached at its address on this network, else its Tailscale name (remembered from its `/api/info`). |
 | `fetch(id, op, { query, method, body, signal, headers })` | `Promise<http.IncomingMessage>`: `/api/files/<op>` there, with this computer's token for it. `body`: a Readable or Buffer as is, anything else as JSON. Any status resolves; rejects only on a network error (`code: 'offline'`), an unknown id (`'unknown'`) or `signal` aborting (a broken write leaves nothing there). |
 
+For a Claude on this computer (tabby-files' `files.mjs share`), `window.__tabbyRemote.shares`; there is no HTTP route, so a linked computer can only ask this computer's Claude:
+
+| Call | Returns |
+| --- | --- |
+| `list()` | `[path]`: the Shared folders |
+| `add(path)` | `Promise<{ ok, folder, shared } \| { ok: false, why }>`: shares the folder (its real path). Refuses a whole drive or the home folder, which only Settings can share. Tabby shows a notice. |
+| `remove(path)` | `Promise<{ ok, folder, shared } \| { ok: false, why }>`: stops sharing it. Tabby shows a notice. |
+
 ## Remote sign in Tabby
 
 | Where | Sign |

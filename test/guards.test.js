@@ -32,6 +32,15 @@ async function files (op, query, { folders = [root], phone = false, device = nul
     return { status: res.status, body: res.body, s }
 }
 
+test('a Claude can share a folder, but not a whole drive or home folder', async () => {
+    const store = { sharedFolders: [], links: {} }
+    const { sharesApi } = share({ store, save () {}, notifications: quiet })
+    assert.strictEqual((await sharesApi.add(path.parse(root).root)).ok, false)
+    assert.strictEqual((await sharesApi.add(os.homedir())).ok, false)
+    assert.deepStrictEqual(await sharesApi.add(root), { ok: true, folder: root, shared: [root] })
+    assert.strictEqual((await sharesApi.remove(root)).ok, true)
+    assert.deepStrictEqual(store.sharedFolders, [])
+})
 test('a file inside a shared folder is reachable', async () => {
     assert.strictEqual((await files('stat', { path: path.join(root, 'a.txt') })).status, 200)
 })
