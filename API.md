@@ -98,7 +98,7 @@ Anything on the network can announce itself as another computer, so linking neve
 | POST | `/api/sessions/:id/send` | `{ computerId }` | Send to computer: this computer exports the tab's Claude chat (claude-sessions) and sends it to that linked computer, which opens it in a new tab. `{ ok, name, cwd, warnings }`, or `409 { error }`. |
 | POST | `/api/import` | A claude-sessions export zip (max 200 MB) | From a linked computer only (`403` otherwise). The zip is checked (only `meta.json`, `<id>.jsonl`, `<id>/…`; no absolute or `..` paths), imported by claude-sessions, and opened in a new tab running `claude --resume <id>` in the folder the import chose. `{ ok, cwd, warnings }`; `409` when there is no clone or it was imported before; `501` without claude-sessions. |
 | POST | `/api/say` | `{ tab, message, from? }` | Talk: from a linked computer only (`403` otherwise). Types `[from <that computer> · "<from>"] <message> (reply: …)` into the Claude tab titled `tab` (else the one whose title contains it), through tabby-groups' `sayToClaude`, which refuses any tab not running Claude Code. The computer's name comes from its link, never from the body. Message up to 8000 characters. `{ tab }`; `409 { error }` when refused; `501` without tabby-groups 0.1.5+. Tabby shows a notice. Sent with `window.__tabbyRemote.talk.say(computer, tab, message, from)`. |
-| GET | `/api/chats` | — | Talk: from a linked computer only. `{ chats: [title] }`: the Claude tabs here. |
+| GET | `/api/chats` | — | Talk: from a linked computer only. `{ chats: ["#n title"] }`: the Claude tabs here, each with its side-bar number; `/api/say` takes `"#n"` as the tab when two share a title. |
 
 Errors are `{ "error": "<text>" }` with `400`, `401`, `403`, `404`, `409`, `429` or `500`.
 
