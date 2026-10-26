@@ -8,8 +8,11 @@ let foldMode = saved('foldMode') ?? 'tabby'
 let ownFolds = saved('folds') ?? {}
 const isShut = g => foldMode === 'device' ? !!ownFolds[g.name] : !!g.collapsed
 
-/** This device's settings, as a menu: for now, whose collapsed groups the sidebar shows. */
-function settingsMenu () {
+/** This device's settings, as a menu: whose collapsed groups the sidebar shows, and the other computers to switch to. */
+async function settingsMenu () {
+    // Each computer serves its own page; this device signs in to each once (its pairing QR in Tabby's Settings › Devices).
+    const others = await api('/api/computers').then(r => r.ok ? r.json() : [], () => [])
+    const switchTo = others.filter(c => c.url)
     const pick = mode => {
         // Switching to this device's own starts from what is shown now.
         if (mode === 'device' && foldMode !== 'device') ownFolds = Object.fromEntries(groups.map(g => [g.name, !!g.collapsed]))
@@ -23,6 +26,10 @@ function settingsMenu () {
         { label: 'Collapsed groups' },
         { text: 'Synced with Tabby', checked: foldMode === 'tabby', run: () => pick('tabby') },
         { text: 'This device only', checked: foldMode === 'device', run: () => pick('device') },
+        { label: 'Computers' },
+        { text: computer || 'This computer', checked: true, run () {} },
+        ...switchTo.map(c => ({ text: c.name, run: () => location.assign(c.url) })),
+        ...switchTo.length ? [] : [{ label: 'No other computers seen on this Wi-Fi.' }],
         { label: 'Devices' },
         { text: 'Add another device…', run: addDevice },
         // Touch screens: the phone keyboard's word predictions (autocorrect follows the phone's own setting).
