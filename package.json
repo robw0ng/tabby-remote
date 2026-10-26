@@ -1,6 +1,9 @@
 {
   "name": "tabby-remote",
-  "version": "0.2.3",
+  "version": "0.2.4",
+  "scripts": {
+    "test": "node --test test/guards.test.js"
+  },
   "description": "HTTP and WebSocket API to Tabby's terminals, for any client app",
   "keywords": [
     "tabby-plugin"
