@@ -1,4 +1,4 @@
-# tabby-remote API (draft)
+# tabby-remote API
 
 A Tabby plugin that serves the running Tabby's terminals to other devices. Your own app and the built-in phone page (QR) are both clients of this API.
 
@@ -42,7 +42,7 @@ Set in Tabby's **Settings > Devices**, and saved in `tabby-remote.json` in Tabby
 
 ## Auth
 
-Every request needs `Authorization: Bearer <deviceToken>`. A WebSocket sends the token in its first message.
+Every request needs `Authorization: Bearer <deviceToken>`, except the sign-in, identity and QR routes (`/api/pair`, `/api/login`, `/api/identity`, `/api/prove`, `/api/link-back`, `/api/qr`, `/api/info`) and signed download links (`/api/files/dl`). A WebSocket sends the token in its first message. All of it is plain HTTP: on Wi-Fi, use it on networks you trust, or through Tailscale, which encrypts it.
 
 | Method | Flow |
 | --- | --- |
@@ -52,8 +52,8 @@ Every request needs `Authorization: Bearer <deviceToken>`. A WebSocket sends the
 | Rule | Value |
 | --- | --- |
 | Device tokens | Random 256-bit, stored hashed, one per device, revocable in Tabby |
-| Pairing code | Single use, 2-minute life |
-| Failed logins | 5 per minute per address, then a 1-minute lockout |
+| Pairing code | 6 digits, 2-minute life, good for one pairing (a second request within 30 s of it also works: a phone may load the link twice). 10 wrong codes in all, from any addresses, and it stops working (Tabby's QR shows a new one). |
+| Failed logins | 5 wrong passwords or codes per minute per address, then a 1-minute lockout |
 | Host check | `Host` must be one of the server's own addresses, or this computer's Tailscale name `<hostname>.<tailnet>.ts.net`, with its port (stops DNS rebinding) |
 | Origin check | `Origin`, when sent, must be this server, so only its own page can call it from a browser. Native apps send none. |
 
@@ -63,11 +63,11 @@ Anything on the network can announce itself as another computer, so linking neve
 
 | Step | What happens |
 | --- | --- |
-| 1 | `POST /api/identity` there: it must sign the nonce with the address it saw the question come from, so a host passing the question on to the real computer fails. |
+| 1 | `POST /api/identity` there: it must sign the nonce with the address it saw the question come from, so a host passing the question on to the real computer fails. Its answer also holds a `ticket`: single use, 2 minutes, for one sealed sign-in (step 3). |
 | 2 | The user confirms the fingerprint shown matches the other computer's own (its Settings, or under its QR). A different one means something else is answering: Cancel, and nothing is sent. |
-| 3 | The password or code goes to `/api/login` or `/api/pair` as `{ sealed: { epk, iv, ct, tag } }`: X25519 with a fresh key, HKDF-SHA256 (salt: that key, info `tabby-remote link v1`), AES-256-GCM, to the confirmed `box` key. The token comes back sealed with the same key. Phones still send theirs as they are. |
+| 3 | The password or code goes to `/api/login` or `/api/pair` as `{ sealed: { epk, iv, ct, tag } }`, the body inside carrying the `ticket` from step 1 (a sealed sign-in without a live one is refused, so a recording cannot be replayed): X25519 with a fresh key, HKDF-SHA256 (salt: that key, info `tabby-remote link v1`), AES-256-GCM, to the confirmed `box` key. The token comes back sealed with the same key. Phones still send theirs as they are. |
 | 4 | Link back: the linking computer gives the other a token for itself too (`POST /api/link-back` there, sealed the same way, signed in with the token it just got inside the seal, with its own `computerId`, `sign` and `box`). The other links back only when the request came from that computer's announced address and it proves those keys (step 1). So one link works both ways; removing either side's device unlinks both. |
-| 5 | The link pins the other's `sign` and `box` keys; later checks (before a token is sent, see Files between computers) are step 1 against the pinned keys. A link saved before identities proves itself with `/api/prove` once, and pins them then. |
+| 5 | The link pins the other's `sign` and `box` keys; later checks (before a token is sent, see Files between computers) are step 1 against the pinned keys. A link saved before identities proves itself with `/api/prove` once, and pins them then; that proof is bound to the token and the address, but a host able to fake its address (in the middle of the connection) could pass it, so such a link is only as safe as the network until then. |
 
 ## REST
 
@@ -76,7 +76,10 @@ Anything on the network can announce itself as another computer, so linking neve
 | GET | `/api/info` | — | `{ tabby, plugin, host, id, name, port, password, groups, side, tailscale }`: versions, host name, this computer's permanent `id`, display `name` and listening `port` (so a client that knows several computers can tell them apart, also at a new address), whether password login is on, whether tabby-groups is installed, and `side`, `left` or `right`: where Tabby's tab bar is (the page puts its sidebar there; the events socket sends `{ type: "side", side }` when it changes), and `tailscale`: its Tailscale name or address, or `null`. No auth. |
 | POST | `/api/pair` | `{ code, deviceName, computer? }` | `{ token, deviceId }`. `computer: true`: another of the user's computers linking (Send to computer). |
 | POST | `/api/login` | `{ password, deviceName, computer? }` | `{ token, deviceId }`; `computer` as for `/api/pair` |
-| POST | `/api/identity` | `{ nonce }` (32–128 characters) | `{ sign, box, sig }`: this computer's Ed25519 and X25519 public keys (base64 DER), and an Ed25519 signature over `tabby-remote identity v1\n<nonce>\n<asker's address as seen here>\n<box>`. No auth. Its fingerprint (Settings, and under the QR) is 12 characters of SHA-256 over `<sign>.<box>`. |
+| POST | `/api/identity` | `{ nonce }` (32–128 characters) | `{ sign, box, sig, ticket }`: this computer's Ed25519 and X25519 public keys (base64 DER), and an Ed25519 signature over `tabby-remote identity v1\n<nonce>\n<asker's address as seen here>\n<box>`. No auth. Its fingerprint (Settings, and under the QR) is 16 characters (80 bits, base32) of SHA-256 over `<sign>.<box>`. |
+| POST | `/api/prove` | `{ deviceId, nonce }` | `{ proof, sign, box }` for a linked computer's device: HMAC (keyed by that device's token hash) of the nonce, the asker's address and this computer's public keys. Lets a link saved before identities check, and pin, this computer. `404` for any other device. No auth. |
+| POST | `/api/link-back` | `{ sealed }` (see Linking computers, step 4) | The sealed answer of the other side's link back. Inside the seal: the token it was just given here (`401` without a valid computer one). No other auth. |
+| POST | `/api/qr` | — | Shows the pairing QR on this computer's screen (for a device not yet signed in, or pairing another). Once per 10 s per address, `429` otherwise. No auth: it only shows the code where you already are. |
 | GET | `/api/devices` | — | `[{ id, name, created, current }]` |
 | GET | `/api/computers` | — | The other computers running tabby-remote on this network, heard in the last 2 minutes: `[{ computerId, name, url, linked }]`. `url` is the address its announcement came from, so a changed IP is followed. Signing in there needs its own code or password. `linked`: this computer can send Claude chats there. |
 | POST | `/api/pairing` | — | A single-use, 2-minute pairing code for another device, made by a signed-in one: `{ code, url, expires, svg }` (`svg` is its QR) |
@@ -241,11 +244,3 @@ For a Claude on this computer (tabby-files' `files.mjs share`), `window.__tabbyR
 | Tab row | A small "remote" badge while any device is attached to one of its panes |
 | Sidebar top row | A count of connected devices; a click lists them, with "Disconnect" and "Revoke" |
 | On connect | A short notice in Tabby: "<device> connected" |
-
-## Decisions
-
-| # | Decision |
-| --- | --- |
-| 1 | Port `7681` (was `7680`; taken by Windows) — to confirm |
-| 2 | A tab with split panes is one Session; panes attach separately (see Session) |
-| 3 | Tabby shows a sign while a device is attached (see Remote sign) |

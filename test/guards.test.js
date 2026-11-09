@@ -1,4 +1,4 @@
-// The checks that keep files, links and talk safe, without Tabby: node --test test/
+// The checks that keep files, links and talk safe, without Tabby: npm test
 const test = require('node:test')
 const assert = require('node:assert')
 const fs = require('fs')
@@ -106,9 +106,9 @@ test('link back only when it proves its keys', async () => {
 test('talk types only text, stamped with the linked computer it came from', async () => {
     let typed = null
     const t = talk({ store: { links: {} }, notifications: quiet, groups: () => ({ sayToClaude: async (tab, text) => { typed = text; return { ok: true, tab } } }) })
-    const r = await t.receiveSay({ tab: 'chat', message: 'hi\x1b[Z\x03\x03 there', from: 'me\x1b' }, { name: 'ROB-SWIFT (computer)' })
+    const r = await t.receiveSay({ tab: 'chat', message: 'hi\x1b[Z\x03\x03 there', from: 'me\x1b' }, { name: 'LAPTOP (computer)' })
     assert.strictEqual(r.status, 200)
-    assert.ok(typed.startsWith('[from ROB-SWIFT · "me"] hi'), typed)
+    assert.ok(typed.startsWith('[from LAPTOP · "me"] hi'), typed)
     assert.ok(!/[\p{Cc}\p{Cf}]/u.test(typed), JSON.stringify(typed))
 })
 test('talk refuses without a tabby-groups that limits it to Claude tabs', async () => {

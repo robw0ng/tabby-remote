@@ -129,7 +129,7 @@ async function showFile (p, e) {
     view.textContent = 'No preview'
 }
 
-/** Saves the file on this device. ponytail: the whole file passes through memory (a Blob); fine for phone-sized
+/** Saves the file on this device. Limit: the whole file passes through memory (a Blob); fine for phone-sized
  *  files, a streamed download link would need the token in the URL. */
 async function download (p, name) {
     setStatus(`Downloading ${name}…`)

@@ -13,7 +13,7 @@ Steps an agent can follow when asked to "install https://github.com/robw0ng/tabb
 | --- | --- | --- | --- |
 | Tabby 1.0 | `Test-Path "$env:LOCALAPPDATA\Programs\Tabby\Tabby.exe"` | `test -d /Applications/Tabby.app` | Ask the user to install Tabby from https://tabby.sh |
 | Node.js and npm | `npm -v` | `npm -v` | Ask the user to install Node.js LTS |
-| Git, with access to the repo (it is private) | `git ls-remote https://github.com/robw0ng/tabby-remote` | same | Ask the user to sign in (`gh auth login`) |
+| Git | `git --version` | same | Ask the user to install Git |
 
 ## 1. Clone, or update
 
@@ -114,7 +114,7 @@ macOS:
 curl -s http://127.0.0.1:7681/api/info
 ```
 
-Expect `{ tabby, plugin, host, id, name, port, password, groups }`. `"password": false` only means password sign-in is not set up; it does not open anything: a device still needs the single-use code from the QR (or a password, once one is set) to get in.
+Expect `{ tabby, plugin, host, id, name, port, password, groups, side, tailscale }`. `"password": false` only means password sign-in is not set up; it does not open anything: a device still needs the 2-minute code from the QR (or a password, once one is set) to get in.
 
 | Result | Meaning |
 | --- | --- |

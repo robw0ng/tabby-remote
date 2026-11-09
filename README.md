@@ -4,6 +4,8 @@ Use your [Tabby](https://tabby.sh) terminals from your phone, tablet or another 
 
 It is also an HTTP + WebSocket API, so you can build your own client. See [API.md](API.md).
 
+<!-- Screenshot: the phone page with the tab sidebar and a terminal (docs/phone.png, to add). -->
+
 ## What you get
 
 | Feature | Detail |
@@ -88,17 +90,36 @@ Linked computers also use each other's **Shared folders** (Settings › Devices 
 
 With [tabby-groups](https://github.com/robw0ng/tabby-groups) installed, the phone sidebar shows the same groups, colours and pins, and changes sync both ways. Without it, the sidebar lists plain tabs.
 
+## How it works
+
+The plugin runs inside Tabby's window. `index.js` builds one shared context and loads each part from `lib/`, which adds its functions to it:
+
+| Part | Files |
+| --- | --- |
+| Server | `server.js` (HTTP and WebSocket on private and Tailscale addresses), `routes.js` (the API), `ws.js` (WebSocket framing) |
+| Signing in | `pairing.js` (QR codes), `devices.js` (tokens, lockout), `secrets.js`, `store.js` (settings file) |
+| Terminals | `sessions.js`, `attach.js` (a pane's screen and input), `size.js`, `presence.js`, `events.js`, `theme.js` |
+| Computers | `discovery.js` (finding them), `identity.js` (keys, sealed linking), `move.js` (linking, Send to computer), `talk.js`, `share.js` (Shared folders), `tailscale.js`, `net.js` |
+| Tabby | `settings.js` (Settings › Devices), `power.js` (keep awake), `files.js` (uploads, clipboard), `model.js` |
+
+`web/` is the page: plain scripts with no build step, loaded in the order `index.html` lists. Tests: `npm test`.
+
 ## Security
+
+A signed-in device can do anything you can do in a terminal. Only pair devices you own, on networks you trust.
 
 | Point | Detail |
 | --- | --- |
-| Network | Listens on your local network only, over plain HTTP. Use it on networks you trust. |
-| Devices | Each device has its own token, stored hashed. Remove a device in Settings to sign it out. |
-| Pairing codes | Single use, valid 2 minutes |
-| Password | Stored as a salted hash. 5 wrong tries lock that address for a minute. |
-| Other sites | Requests from other web pages are refused |
+| Network | Plain HTTP on private (home, office) addresses and Tailscale; never on all interfaces. On Wi-Fi, anyone who can watch the traffic can read what a phone sends: its password at sign-in, its token, and the terminal itself. Tailscale encrypts all of it. Anyone on your tailnet can reach the port. |
+| Devices | Each device has its own random 256-bit token, stored hashed on the computer. Remove a device in Settings to sign it out at once. A signed-in device can also pair another one and remove devices. |
+| Pairing codes | 6 digits, valid 2 minutes, for one pairing (a phone that loads the link twice gets 30 s more). 10 wrong codes in all and it stops working (Tabby's QR shows a new one). |
+| Password | Optional, stored as a salted scrypt hash. 5 wrong tries (passwords or codes) lock that address for a minute. |
+| Other sites | Requests from other web pages are refused (Host and Origin checks), so a page you visit cannot reach it. |
+| Computers | Linking two computers gives each full access to the other (terminals, Shared folders, messages to Claude tabs). Before linking, each proves its identity (keys, a fingerprint you compare) and the password or code goes sealed, so a device pretending to be one of yours learns nothing usable. Links made before identities existed are checked with a weaker proof until they are next used. |
+| On this computer | Settings, linked computers' tokens and this computer's private keys are kept in `tabby-remote.json` in Tabby's data folder, readable only by you. |
+| Without sign-in | `/api/info` (name, version, Tailscale name), `/api/identity` and `/api/prove` (public keys and proofs), `/api/qr` (shows the QR on this screen, at most every 10 s per address), and 30-minute signed download links for files dragged out of the page. |
 
-Anyone who signs in can type into your terminals. Only pair devices you own.
+The code is open, and nothing depends on it staying secret: every code, token, id and key comes from the system's random generator. See [API.md](API.md) for the protocol.
 
 ## License
 

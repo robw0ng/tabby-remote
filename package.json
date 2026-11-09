@@ -2,11 +2,17 @@
   "name": "tabby-remote",
   "version": "0.2.4",
   "scripts": {
-    "test": "node --test test/guards.test.js"
+    "test": "node --test"
   },
-  "description": "HTTP and WebSocket API to Tabby's terminals, for any client app",
+  "description": "Use your Tabby terminals from your phone, tablet or another computer: a touch web page and an HTTP + WebSocket API",
   "keywords": [
-    "tabby-plugin"
+    "tabby-plugin",
+    "tabby",
+    "terminal",
+    "remote",
+    "phone",
+    "websocket",
+    "claude-code"
   ],
   "author": "robw0ng",
   "license": "UNLICENSED",
