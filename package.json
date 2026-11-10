@@ -15,7 +15,7 @@
     "claude-code"
   ],
   "author": "robw0ng",
-  "license": "UNLICENSED",
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/robw0ng/tabby-remote.git"

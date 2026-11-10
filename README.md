@@ -99,8 +99,8 @@ The plugin runs inside Tabby's window. `index.js` builds one shared context and 
 | Server | `server.js` (HTTP and WebSocket on private and Tailscale addresses), `routes.js` (the API), `ws.js` (WebSocket framing) |
 | Signing in | `pairing.js` (QR codes), `devices.js` (tokens, lockout), `secrets.js`, `store.js` (settings file) |
 | Terminals | `sessions.js`, `attach.js` (a pane's screen and input), `size.js`, `presence.js`, `events.js`, `theme.js` |
-| Computers | `discovery.js` (finding them), `identity.js` (keys, sealed linking), `move.js` (linking, Send to computer), `talk.js`, `share.js` (Shared folders), `tailscale.js`, `net.js` |
-| Tabby | `settings.js` (Settings › Devices), `power.js` (keep awake), `files.js` (uploads, clipboard), `model.js` |
+| Computers | `discovery.js` (finding them), `identity.js` (keys, sealed linking, checking a linked computer is really it), `move.js` (linking, Send to computer), `talk.js`, `share.js` (Shared folders), `tailscale.js`, `net.js` |
+| Tabby | `settings.js` (Settings › Devices), `power.js` (keep awake), `uploads.js` (uploads, clipboard), `model.js` |
 
 `web/` is the page: plain scripts with no build step, loaded in the order `index.html` lists. Tests: `npm test`.
 
@@ -123,4 +123,4 @@ The code is open, and nothing depends on it staying secret: every code, token, i
 
 ## License
 
-All rights reserved.
+MIT, see [LICENSE](LICENSE).
