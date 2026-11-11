@@ -1,7 +1,7 @@
 // ---- Drag and drop in the sidebar, with tabby-groups' rules ----
 // Touch: hold a row or group header ~0.4 s, then drag. Mouse: just drag. Where it lands follows tabby-groups:
 // a tab's middle groups with it ("onto"), its top or bottom quarter goes before or after it (halves when a group is
-// dragged, or the tab is alone in its group); a group header's halves are "above" and "first in the group"; the gap
+// dragged); a group header's halves are "above" and "first in the group"; the gap
 // under a group's last row is "last in it" / "below it". Tabby applies the drop (POST /api/move), and the list
 // updates from Tabby's events.
 
@@ -27,11 +27,10 @@ function intentAt (x, y) {
             if (!s || s.id === src.session) return null
             // A dragged group cannot land among its own rows.
             if (src.group && s.group.includes(src.group)) return null
-            const inner = s.group.at(-1)
-            const lone = inner && !sessions.some(v => v.id !== s.id && v.id !== src.session && v.group.at(-1) === inner)
             const r = row.getBoundingClientRect()
             const f = (y - r.top) / r.height
-            const where = src.group || lone ? (f < 0.5 ? 'before' : 'after') : f < 0.25 ? 'before' : f > 0.75 ? 'after' : 'onto'
+            // A tab dropped on the middle of a tab makes a group of both (inside a group: a subgroup, the group stays).
+            const where = src.group ? (f < 0.5 ? 'before' : 'after') : f < 0.25 ? 'before' : f > 0.75 ? 'after' : 'onto'
             return { el: row, target: { session: s.id }, where }
         }
         const bar = hit.closest('.grp-bar')
