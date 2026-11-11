@@ -85,17 +85,17 @@ Anything on the network can announce itself as another computer, so linking neve
 | POST | `/api/pairing` | — | A single-use, 2-minute pairing code for another device, made by a signed-in one: `{ code, url, expires, svg }` (`svg` is its QR) |
 | DELETE | `/api/devices/:id` | — | Revokes one device and closes its sockets (code `4001`) |
 | GET | `/api/sessions` | — | Tabs (see Session) |
-| GET | `/api/groups` | — | tabby-groups `list()`: `[{ name, color, collapsed, pinned, parent, tabs, needsYou, busy }]`; `needsYou`/`busy` count Claude tabs in the whole subtree |
+| GET | `/api/groups` | — | tabby-groups `list()`: `[{ id, name, path, color, collapsed, pinned, parent, parentId, tabs, needsYou, asking, running, compacting, busy }]`. `id` is hidden and stable (a rename keeps it); `name` is unique only among siblings; `path` is the names root first (`"work/api"`); `parent` is the parent's name, `parentId` its id (`null` at the top level). The counts take Claude tabs in the whole subtree |
 | POST | `/api/upload` | Raw file body; header `X-Filename` (URI-encoded). Max 50 MB. | `{ path }`: saved in `<temp>/tabby-remote/uploads`. Paste the path into a terminal to hand the file over (Claude Code attaches an image by its path). |
 | GET | `/api/clipboard` | — | The PC's clipboard: `{ text, path: null }`, or for an image `{ text: null, path }` (saved as PNG in the uploads folder) |
 | PUT | `/api/clipboard` | `{ text }` | Puts the text on the PC's clipboard |
 | GET | `/api/sessions/:id/peek` | `?lines=` (1–60, default 12) | `{ lines }`: the last lines on the tab's screen, without attaching |
-| PATCH | `/api/groups/:name` | `{ color?, collapsed?, pinned?, parent?, name? }` (`color`/`parent` may be `null`) | The group. Applied by tabby-groups; `409` when a rename or move is refused. |
-| POST | `/api/groups/:name/ungroup` | — | Dissolves one level, as tabby-groups' menu does |
+| PATCH | `/api/groups/:ref` | `{ color?, collapsed?, pinned?, parent?, name? }` (`color`/`parent` may be `null`; `parent` is an id, path or unique name) | The group, found again by its id. `:ref` is a group's id, its path, or a name only one group has (URI-encoded); `404` when none, `409` when a name is shared ("give its id or path"). Applied by tabby-groups; `409 { error }` when a rename or move is refused. A name a sibling already has becomes `"name (1)"`. |
+| POST | `/api/groups/:ref/ungroup` | — | Dissolves one level, as tabby-groups' menu does. `:ref` as above. |
 | GET | `/api/icons` | — | tabby-groups icons by kind: `{ label, color, path or paths, stroke? }`, 24×24 |
-| POST | `/api/sessions` | `{ profile?, command?, args?, cwd?, run?, title?, group?, parent? }` | The new Session. Uses `__tabbyGroups.open` when tabby-groups is installed. |
-| POST | `/api/move` | `{ source, target, where }`: `source`/`target` are `{ session: id }` or `{ group: name }`; `where` is `before`/`after`/`onto` on a tab, `above`/`first`/`last`/`below` on a group | Drag and drop, applied by tabby-groups' own rules (`__tabbyGroups.drop`). `409` when not allowed there, `501` without tabby-groups. |
-| PATCH | `/api/sessions/:id` | `{ title?, group?, parent?, pinned?, focus? }` | The updated Session. `group` is a group name (created, under `parent`, if new), or `null` to ungroup. An empty `title` clears the custom title. `pinned` pins inside the group, or with Tabby's pin when loose. |
+| POST | `/api/sessions` | `{ profile?, command?, args?, cwd?, run?, title?, group?, parent? }` | The new Session. Uses `__tabbyGroups.open` when tabby-groups is installed. `group`/`parent` as in PATCH below; `409 { error }` when tabby-groups refuses them. |
+| POST | `/api/move` | `{ source, target, where }`: `source`/`target` are `{ session: id }` or `{ group: ref }` (an id, path or unique name); `where` is `before`/`after`/`onto` on a tab, `above`/`first`/`last`/`below` on a group | Drag and drop, applied by tabby-groups' own rules (`__tabbyGroups.drop`). `409` when not allowed there or a group name is shared, `404` for an unknown group, `501` without tabby-groups. |
+| PATCH | `/api/sessions/:id` | `{ title?, group?, parent?, pinned?, focus? }` | The updated Session. `group` is a group's id, path or unique name (a name not found is created, under `parent`, also an id, path or unique name), or `null` to ungroup; `409 { error }` when tabby-groups refuses it (a name two groups share). An empty `title` clears the custom title. `pinned` pins inside the group, or with Tabby's pin when loose. |
 | DELETE | `/api/sessions/:id` | — | Closes the tab without asking. `409` when it is pinned. |
 | GET | `/api/profiles` | — | `[{ id, name, type, icon }]`; `icon` may be SVG markup |
 | POST | `/api/sessions/:id/send` | `{ computerId }` | Send to computer: this computer exports the tab's Claude chat (claude-sessions) and sends it to that linked computer, which opens it in a new tab. `{ ok, name, cwd, warnings }`, or `409 { error }`. |
@@ -113,7 +113,8 @@ Errors are `{ "error": "<text>" }` with `400`, `401`, `403`, `404`, `409`, `429`
   "title": "api-server",
   "kind": "claude",         // the tabby-groups icon kind: claude, codex, pwsh, cmd, bash, …
   "cwd": "C:\\projects\\app",
-  "group": ["work", "api-server"],   // group path, root first; [] when ungrouped
+  "group": ["work", "api-server"],   // group names, root first; [] when ungrouped
+  "groupIds": ["tg-ab12cd34", "tg-9f3e01c2"],   // the same groups' ids (names repeat under different parents)
   "index": 3,               // 1-based position in Tabby's tab list
   "pinned": false,
   "active": true,           // the tab selected in Tabby

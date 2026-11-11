@@ -14,7 +14,7 @@ const tintPct = depth => Math.max(20 - depth * 3, 11)
 // tabby-groups' readability rule: a subgroup the same colour as its parent is darker, one more step for each such
 // level in a row; a subgroup of another colour keeps its normal look. 36% per step (this side bar is dark).
 const shadeOf = g => {
-    const parent = g.parent && groups.find(x => x.name === g.parent)
+    const parent = g.parentId && groups.find(x => x.id === g.parentId)
     const same = parent && (parent.color ?? NO_COLOR).toLowerCase() === (g.color ?? NO_COLOR).toLowerCase()
     return same ? shadeOf(parent) + 1 : 0
 }

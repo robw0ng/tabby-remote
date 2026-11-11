@@ -9,11 +9,11 @@ const dropLine = el('div', { className: 'drop-line' })
 const ghost = el('div', { className: 'drag-ghost' })
 let drag = null // { source: { session } | { group }, label, el }
 
-const parentOf = name => groups.find(g => g.name === name)?.parent ?? null
-/** The group and all its ancestors. */
-const chainOf = name => {
+const parentOf = id => groups.find(g => g.id === id)?.parentId ?? null
+/** The group's id and all its ancestors' ids. */
+const chainOf = id => {
     const out = []
-    for (let n = name; n && out.length <= groups.length; n = parentOf(n)) out.push(n)
+    for (let n = id; n && out.length <= groups.length; n = parentOf(n)) out.push(n)
     return out
 }
 
@@ -26,7 +26,7 @@ function intentAt (x, y) {
             const s = sessions.find(v => v.id === row.dataset.id)
             if (!s || s.id === src.session) return null
             // A dragged group cannot land among its own rows.
-            if (src.group && s.group.includes(src.group)) return null
+            if (src.group && s.groupIds?.includes(src.group)) return null
             const r = row.getBoundingClientRect()
             const f = (y - r.top) / r.height
             // A tab dropped on the middle of a tab makes a group of both (inside a group: a subgroup, the group stays).
@@ -36,15 +36,15 @@ function intentAt (x, y) {
         const bar = hit.closest('.grp-bar')
         const box = hit.closest('.grp')
         if (!box) continue
-        const name = box.dataset.group
-        if (src.group && chainOf(name).includes(src.group)) return null
+        const id = box.dataset.group
+        if (src.group && chainOf(id).includes(src.group)) return null
         if (bar) {
             const r = bar.getBoundingClientRect()
-            return { el: bar, target: { group: name }, where: (y - r.top) / r.height < 0.5 ? 'above' : 'first' }
+            return { el: bar, target: { group: id }, where: (y - r.top) / r.height < 0.5 ? 'above' : 'first' }
         }
         // The gap under the group's last row.
         const r = box.getBoundingClientRect()
-        return { el: box, target: { group: name }, where: y > r.bottom - 3 ? 'below' : 'last' }
+        return { el: box, target: { group: id }, where: y > r.bottom - 3 ? 'below' : 'last' }
     }
     return null
 }
@@ -105,7 +105,7 @@ function dragStart (target, x, y) {
     const source = row ? { session: row.dataset.id } : { group: bar.parentElement.dataset.group }
     drag = { source, el: row ?? bar, intent: null }
     drag.el.classList.add('dragging')
-    ghost.textContent = row ? row.querySelector('.title').textContent : source.group
+    ghost.textContent = row ? row.querySelector('.title').textContent : bar.parentElement.dataset.name
     document.body.append(ghost)
     dragMove(x, y)
 }

@@ -56,16 +56,17 @@ function matches (s, query) {
     return query.split(/\s+/).every(w => hay.includes(w) || (/^#?\d+$/.test(w) && String(s.index) === w.replace('#', '')))
 }
 
-/** Groups nest by `parent`; tabs sit in their innermost group. Everything keeps Tabby's tab order. */
+/** Groups nest by `parentId`; tabs sit in their innermost group. Everything keeps Tabby's tab order. Keyed by id:
+ *  two groups under different parents can share a name. */
 function tree (keep = () => true) {
-    const nodes = new Map(groups.map(g => [g.name, { group: g, kids: [], first: Infinity, count: 0 }]))
+    const nodes = new Map(groups.map(g => [g.id, { group: g, kids: [], first: Infinity, count: 0 }]))
     const top = []
     for (const s of [...sessions].filter(keep).sort((a, b) => a.index - b.index)) {
-        const g = nodes.get(s.group.at(-1))
+        const g = nodes.get(s.groupIds?.at(-1))
         ;(g ? g.kids : top).push({ tab: s, first: s.index })
     }
     for (const n of nodes.values()) {
-        const p = nodes.get(n.group.parent)
+        const p = nodes.get(n.group.parentId)
         ;(p ? p.kids : top).push(n)
     }
     const settle = n => {
@@ -85,7 +86,8 @@ function groupEl (n, depth, hiddenAbove = false) {
     const shut = isShut(g)
     const color = g.color ?? NO_COLOR
     const box = el('div', { className: 'grp' + (depth === 0 ? ' top' : '') })
-    box.dataset.group = g.name
+    box.dataset.group = g.id
+    box.dataset.name = g.name
     const shade = shadeOf(g)
     box.style.background = darken(`color-mix(in srgb, ${color} ${tintPct(depth)}%, var(--bg))`, shade)
     // For marks that ring themselves in the panel's colour (the asking mark).
@@ -99,11 +101,11 @@ function groupEl (n, depth, hiddenAbove = false) {
                 if (e.detail > 1) return
                 const head = e.currentTarget
                 clearTimeout(pendingFold)
-                pendingFold = setTimeout(() => foldGroup(g.name, !(shut || hiddenAbove), head), 220)
+                pendingFold = setTimeout(() => foldGroup(g.id, !(shut || hiddenAbove), head), 220)
             },
             ondblclick: e => {
                 clearTimeout(pendingFold)
-                if (e.target.closest('.name')) renameGroup(g.name)
+                if (e.target.closest('.name')) renameGroup(g.id)
             },
         },
         // A subgroup inside a collapsed parent is drawn collapsed too, as in tabby-groups.
@@ -111,7 +113,7 @@ function groupEl (n, depth, hiddenAbove = false) {
         el('span', { className: 'name', textContent: g.name }),
         el('span', { className: 'count' }, `${n.count} tab${n.count === 1 ? '' : 's'}`, rollup(g))),
         g.pinned ? el('span', { className: 'grp-pin', ariaLabel: 'pinned group', title: 'Pinned group' }, pinIcon()) : null,
-        el('button', { className: 'icon-btn grp-add', textContent: '+', ariaLabel: `New tab in ${g.name}`, title: `New tab in ${g.name}`, onclick: () => newTab(g.name) })))
+        el('button', { className: 'icon-btn grp-add', textContent: '+', ariaLabel: `New tab in ${g.name}`, title: `New tab in ${g.name}`, onclick: () => newTab(g.id) })))
     box.querySelector('.grp-head').title = g.name
     // Collapsed (itself or a parent), it shows only the open tab and the subgroups on the way to it,
     // as tabby-groups shows the active tab. While searching, collapse is ignored.
@@ -136,7 +138,7 @@ function rollup (g) {
         className: 'rollup',
         // As in tabby-groups: "· N asking" in amber, then "· N running" in green, then the blue parts.
         onclick: e => {
-            const first = sessions.filter(s => (s.agent?.asking || s.agent?.needsYou) && s.group.includes(g.name))
+            const first = sessions.filter(s => (s.agent?.asking || s.agent?.needsYou) && s.groupIds?.includes(g.id))
                 .sort((a, b) => !!b.agent?.asking - !!a.agent?.asking || a.index - b.index)[0]
             if (!first) return
             e.stopPropagation()

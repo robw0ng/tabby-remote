@@ -5,8 +5,9 @@
  * device keeps its own (⚙ in the sidebar), this device's, remembered here. A group new to this device starts open.
  */
 let foldMode = saved('foldMode') ?? 'tabby'
+// By group id, as names repeat under different parents.
 let ownFolds = saved('folds') ?? {}
-const isShut = g => foldMode === 'device' ? !!ownFolds[g.name] : !!g.collapsed
+const isShut = g => foldMode === 'device' ? !!ownFolds[g.id] : !!g.collapsed
 
 /** This device's settings, as a menu: whose collapsed groups the sidebar shows, and the other computers to switch to. */
 async function settingsMenu () {
@@ -15,7 +16,7 @@ async function settingsMenu () {
     const switchTo = others.filter(c => c.url)
     const pick = mode => {
         // Switching to this device's own starts from what is shown now.
-        if (mode === 'device' && foldMode !== 'device') ownFolds = Object.fromEntries(groups.map(g => [g.name, !!g.collapsed]))
+        if (mode === 'device' && foldMode !== 'device') ownFolds = Object.fromEntries(groups.map(g => [g.id, !!g.collapsed]))
         foldMode = mode
         remember('foldMode', mode)
         remember('folds', ownFolds)
